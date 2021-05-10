@@ -56,7 +56,7 @@ def computeTaylorSeries(nTaylor, mean, variance, p):
             # hao
             tmp = quad(
                 integrand1,
-                p,
+                0,
                 1.0,
                 args=(variance[0], variance[1], 2 * m - n, p),
 
@@ -326,7 +326,7 @@ for i in range(0, num):
 
 
 # plot Monte Carlo method approximation with explicit formula results 
-i = 1
+i = 2
 j = 1
 
 # Explict results
