@@ -40,23 +40,26 @@ def computeTaylorSeries(nTaylor, mean, variance, p):
     # )
 
     faInCell = np.zeros((nTaylor, nTaylor + 1))
-
+    TMP = np.zeros((nTaylor, nTaylor + 1))
     error = np.zeros((nTaylor, nTaylor + 1))
 
     for n in range(nTaylor):
         for m in range(n + 1):
             # hao
-
             tmp = quad(
                 integrand1,
-                0,
-                1,
+                p,
+                1.0,
                 args=(variance[0], variance[1], 2 * m - n, p),
-                points=(0.005, 0.03)
+                points=(0.003, 0.03),
+                limit=1000,
+                epsabs=1e-30,
+                epsrel=1e-10,
                 # weight="cauchy",
                 # wvar=0,
             )
             error[n, m] = tmp[1]
+            TMP[n, m] = tmp[0]
 
             # if n == 10 and m == 1:
             #     breakpoint()
@@ -79,17 +82,18 @@ def computeTaylorSeries(nTaylor, mean, variance, p):
             #                 quad(integrand1, 0, 1, args=(s[0], s[1], 2*m-n, p))[0]
     faInCell[np.isnan(faInCell)] = 0
     tmp = np.cumsum(np.sum(faInCell, axis=0))
+    breakpoint()
     return np.nansum(faInCell)
 
 
-if 11 < 2:
+if 1 < 2:
     res = list(
         map(
             lambda p: computeTaylorSeries(
                 10, (-0.00798403, -0.00598802), (7.96809574e-06, 1.19521436e-05), p
             ),
-            10 ** np.linspace(-20, -1, 50),
-            # [0.00019306977288832455],
+            # 10 ** np.linspace(-20, -1, 50),
+            [0.00019306977288832455],
         )
     )
 
