@@ -90,7 +90,7 @@ def computeTaylorSeries(nTaylor, mean, variance, p):
 
     faInCell[np.isnan(faInCell)] = 0
     tmp = np.cumsum(np.sum(faInCell, axis=0))
-    
+    # breakpoint()
     return np.nansum(faInCell)
 
 
@@ -181,11 +181,11 @@ def compute_f_original (Dset, c, muHat, ssHat, pInCell, nTaylor, productInDset):
           )
             
     return rst   
-    
 
+    
 def func_map12(mean, variance, p):
-    lb = min(p,2)
-    ub = max(1,1/p)
+    lb=min(p,2)
+    ub=max(1,1/p)
     # if p <= 2:
     #      res = quad(
     #         integrand_original,
@@ -206,47 +206,19 @@ def func_map12(mean, variance, p):
     #         epsabs=1e-30,
     #         epsrel=1e-10
     #     )[0]
-        
-
     res = quad(
-        original,
-        lb,
-        ub,
-        args=(mean, variance, p),
-        limit=1000,
-        epsabs=1e-30,
-        epsrel=1e-10
-    )[0]
+            original,
+            lb,
+            ub,
+            args=(mean, variance, p),
+            limit=1000,
+            epsabs=1e-30,
+            epsrel=1e-10
+        )[0]
     D1 = norm.cdf(2, mean[0], variance[0] ** 0.5) - norm.cdf(1, mean[0], variance[0] ** 0.5)
     D2 = norm.cdf(2, mean[1], variance[1] ** 0.5) - norm.cdf(1, mean[1], variance[1] ** 0.5)
     return res / (2 * np.pi * np.sqrt(variance[0] * variance[1]) * D1 * D2)
-
-
-def func_Taylor_map12(mean, variance, p, nTaylor):
-    lb = min(p,2)
-    ub = max(1,1/p)
-    faInCell = np.zeros((nTaylor, nTaylor + 1))
-    for n in range(nTaylor):
-        for m in range(n + 1):
-            tmp = quad(
-                integrand1,
-                0,
-                1.0,
-                args=(2 * m - n, variance[0], variance[1], p),
-                limit=1000,
-                epsabs=1e-30,
-                epsrel=1e-10
-            )
-
-            faInCell[n, m] = (
-                p ** (n - m)
-                / math.factorial(n)
-                * (math.factorial(n) / math.factorial(m) / math.factorial(n - m))
-                * (mean[0] / variance[0]) ** m
-                * (mean[1] / variance[1]) ** (n - m)
-                * tmp[0]
-            )
-    return np.sum(faInCell) * np.exp(-0.5 * (mean[0] ** 2 / variance[0] ** 2 + mean[1] ** 2 / variance[1] ** 2))
+    
     
     
     
@@ -389,7 +361,6 @@ for i in range(0, num):
 
 
 
-
 # plot Monte Carlo method approximation with explicit formula results 
 i = 1
 j = 1
@@ -399,9 +370,7 @@ rst_formula = compute_f(Dset[i,j], c[i,j], muHat[i,j], ssHat[i,j], pInCell[i,j],
 # eq. (4) 
 productInDset = Dset[i, j][0] * Dset[i, j][1]
 rst_original = compute_f_original(Dset[i,j], c[i,j], muHat[i,j], ssHat[i,j], pInCell[i,j], nTaylor, productInDset)
-
-rst_new = func_map12(muHat[i,j], ssHat[i,j], pInCell[i,j])/c[i,j]
-
+rst_new = func_map12(muHat[i,j], ssHat[i,j], pInCell[i,j]) / c[i,j]
 
 n_mc = 10000
 rst_mc, mc_pro = MC_approximate(mu, ss, pf, r, n_mc, a, cellLB[i,j], cellUB[i,j])
@@ -423,9 +392,9 @@ if 11 < 2:
 
     plt.plot(tmp, res)
 
-# print("Result by using Eq.(4) is %f" %rst_original)
-# print("Explicit formula result is %f" %rst_formula)
-print("Result by using Eq.(4) of the new mapping domain is %f" %rst_new)
+print("Result by using Eq.(4) is %f" %rst_original)
+print("Explicit formula result is %f" %rst_formula)
+print("Result by using Eq.(4) with mapping to [1,2] is %f" %rst_new)
 print("MC result is (%f,%f)" %(rst_mc, mc_pro))
 
 
