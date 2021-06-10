@@ -184,8 +184,8 @@ def compute_f_original (Dset, c, muHat, ssHat, pInCell, nTaylor, productInDset):
 
     
 def func_map12(mean, variance, p):
-    lb=min(p,2)
-    ub=max(1,1/p)
+    ub=min(p,2)
+    lb=max(1,1/p)
     # if p <= 2:
     #      res = quad(
     #         integrand_original,
@@ -325,7 +325,7 @@ for i in range(0, num):
         q2_prime[i,j] = affineTransform(q[1, i], cellLB[i, j][1], cellUB[i, j][1])
         muHat[i, j][0] = affineTransform(mu[0], cellLB[i, j][0], cellUB[i, j][0]) - q1_prime[i,j]
         muHat[i, j][1] = affineTransform(mu[1], cellLB[i, j][1], cellUB[i, j][1]) - q2_prime[i,j]
-        alpha[i, j] = tranformedHVIinCell[i, j] - (q1_prime[i,j] - 1) * (q2_prime[i,j] - 1)
+        alpha[i, j] = tranformedHVIinCell[i, j] - (q1_prime[i,j] - 2) * (q2_prime[i,j] - 2)
         
         ssHat[i,j] = [
             np.sqrt(ss[k]) / (cellUB[i, j][k] - cellLB[i, j][k]) ** 2 for k in range(0, m)
