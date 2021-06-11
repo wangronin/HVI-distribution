@@ -75,10 +75,8 @@ def func_v3(mean, variance, truncatedLB, truncatedUB, p):
     U1, U2 = truncatedUB
 
     if L1 * U2 > U1 * L2:  # swap y_1' and y_2'
-        L1 = truncatedLB[1]
-        L2 = truncatedLB[0]
-        U1 = truncatedUB[1]
-        U2 = truncatedUB[0]
+        L2, L1 = truncatedLB
+        U2, U1 = truncatedUB
         mean = mean[1], mean[0]
         variance = variance[1], variance[0]
 
