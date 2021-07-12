@@ -74,7 +74,7 @@ class DistributionHVI(object):
             alpha,
             belta,
             args=(mean, variance, p),
-            limit=int(1e6),
+            limit=1000,
             epsabs=1e-30,
             epsrel=1e-10,
         )[0]
@@ -355,38 +355,15 @@ class DistributionHVI(object):
                     - self.truncatedLB[i, j][0] * self.truncatedLB[i, j][1]
                 )
 
-                # area = (self.cellUB[i, j][0] - self.cellLB[i, j][0]) * (self.cellUB[i, j][1] - self.cellLB[i, j][1])
-                # if a > area:
-                #     self.aInCell[i, j] = area
-                # else:
-                #     self.aInCell[i, j] = a
-
-                # aInCell[i,j] = a
-
-                # self.pInCell[i, j] = self.aInCell[i, j] - self.gamma[i, j]
-
                 L1, L2 = self.truncatedLB[i, j]
                 U1, U2 = self.truncatedUB[i, j]
                 muP = [self.muPrime[i, j][0], self.muPrime[i, j][1]]
-                a_ = a - self.gamma[i, j]
-                if a_ < L1 * L2 or a_ > U1 * U2:
+                a_ = min(a - self.gamma[i, j], U1 * U2)
+                if a_ < L1 * L2:
                     self.HVIDistinCell[i, j] = 0
                     continue
 
-                # self.aInCell[i, j] = L1 * L2
-                # self.pInCell[i, j] = U1 * U2
-
-                # if self.pInCell[i, j] < L1 * L2:
-                #     self.pInCell[i, j] = L1 * L2
-                # print('error in Cell(%d,%d)' %(i,j))
-
                 if method == "Taylor":
-                    # self.HVIDistinCell[i,j] = self.computeTaylorSeries(self.pInCell[i, j],
-                    #                                                    muP, ss,
-                    #                                                    [L1, L2],
-                    #                                                    [U1, U2],
-                    #                                                    )
-
                     rst = quad(
                         self.computeTaylorSeries,
                         L1 * L2,
@@ -405,8 +382,7 @@ class DistributionHVI(object):
                         L1 * L2,
                         a_,
                         args=(muP, ss, [L1, L2], [U1, U2]),
-                        epsabs=1e-30,
-                        epsrel=1e-10,
+                        limit=50,
                     )[0]
 
                     ProInCell = self.get_D(

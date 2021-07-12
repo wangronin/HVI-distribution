@@ -25,20 +25,20 @@ lbInf = -50
 
 hvi_dist = DistributionHVI(pf, r, nTaylor)
 
-rst_Taylor = hvi_dist.compute_HVI_dist("withoutTaylor", mu, ss, a)
-mc_rst = hvi_dist.MC_approx(mu, ss, a, n_mc)
+# rst_Taylor = hvi_dist.compute_HVI_dist("withoutTaylor", mu, ss, a)
+# mc_rst = hvi_dist.MC_approx(mu, ss, a, n_mc)
 # rst_noTaylor = hvi_dist.compute_HVI_dist("Taylor", mu, ss, a)
 
-print("MC approximation is %f", mc_rst)
-print("Exact (without Taylor) result is %f", rst_Taylor)
+# print("MC approximation is %f", mc_rst)
+# print("Exact (without Taylor) result is %f", rst_Taylor)
 # print("with Taylor result is %f", rst_noTaylor)
 
-breakpoint()
 avals = np.linspace(0.1, 15, 10)
 
-rst_all_ex = [hvi_dist.compute_HVI_dist("Taylor", mu, ss, a) for a in avals]
+rst_all_ex = [hvi_dist.compute_HVI_dist("withoutTaylor", mu, ss, a) for a in avals]
 rst_all_mc = [hvi_dist.MC_approx(mu, ss, a, n_mc) for a in avals]
 
 plt.plot(avals, rst_all_ex, "r-")
 plt.plot(avals, rst_all_mc, "bo")
 plt.show()
+breakpoint()
