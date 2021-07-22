@@ -141,7 +141,7 @@ class HypervolumeImprovement:
     ) -> float:
         pareto_front = pareto_front if pareto_front else self.pareto_front
         r = r if r else self.r
-        return hv(np.vstack(pareto_front, new).T.tolist(), r) - hv(pareto_front.T.tolist(), r)
+        return hv(np.r_[pareto_front, new].tolist(), r) - hv(pareto_front.tolist(), r)
 
     def pdf_conditional(self) -> float:
         pass
@@ -193,8 +193,8 @@ class HypervolumeImprovement:
     ) -> float:
         mu, sigma = np.array(mu), np.array(sigma)
         sample = mu + sigma * np.random.randn(N, self.dim)
-        fun = lambda x: hv(np.r_[self.pareto_front, x].T.tolist(), self.r)
-        delta = np.array(list(map(fun, sample))) - hv(self.pareto_front.T.tolist(), self.r)
+        fun = lambda x: hv(np.r_[self.pareto_front, x].tolist(), self.r)
+        delta = np.array(list(map(fun, sample))) - hv(self.pareto_front.tolist(), self.r)
         return np.sum(np.bitwise_and(delta > 0, delta <= a)) / (1.0 * N)
 
     def cdf(
@@ -218,73 +218,4 @@ class HypervolumeImprovement:
     #         0.5
     #         * (np.sqrt(variance[0] / variance[1] * p) ** (m - n / 2))
     #         * (np.exp(-p / np.sqrt(variance[0] * variance[1]) * np.cosh(x) + (m - n / 2) * x))
-    #     )
-
-    # def computeTaylorSeries_PDF(self, p, mean, variance, truncatedLB, truncatedUB):
-    #     nTaylor = self.nTaylor
-
-    #     L1, L2 = truncatedLB
-    #     U1, U2 = truncatedUB
-
-    #     if L1 * U2 > U1 * L2:  # swap y_1' and y_2'
-    #         L2, L1 = truncatedLB
-    #         U2, U1 = truncatedUB
-    #         mean = mean[1], mean[0]
-    #         variance = variance[1], variance[0]
-    #     # else:
-    #     #     print('test')
-
-    #     D1, D2 = self.get_D(L1, U1, mean[0], variance[0] ** 0.5), self.get_D(
-    #         L2, U2, mean[1], variance[1] ** 0.5
-    #     )
-
-    #     if L1 * L2 <= p < L1 * U2:
-    #         alpha = L1
-    #         belta = p / L2
-    #     elif L1 * U2 <= p < U1 * L2:
-    #         alpha = p / U2
-    #         belta = p / L2
-    #     elif U1 * L2 <= p <= U1 * U2:
-    #         alpha = p / U2
-    #         belta = U1
-    #     else:
-    #         print("error in lb and ub")
-
-    #     faInCell = np.zeros((nTaylor, nTaylor + 1))
-
-    #     theta = np.log(np.sqrt(variance[1])) - np.log(np.sqrt(variance[0])) * p
-    #     term1 = np.exp(-0.5 * (mean[0] ** 2 / variance[0] + mean[1] ** 2 / variance[1]))
-
-    #     lb = 2 * np.log(alpha) + theta
-    #     ub = 2 * np.log(belta) + theta
-    #     for n in range(nTaylor):
-    #         for m in range(n + 1):
-
-    #             # tmp = quad(
-    #             #     density_cosh,
-    #             #     lb,
-    #             #     ub,
-    #             #     args=(mean, variance, p, m, n),
-    #             # )
-
-    #             tmp = quad(
-    #                 self.density_eq7left,
-    #                 alpha,
-    #                 belta,
-    #                 args=(mean, variance, p, m, n),
-    #             )
-
-    #             faInCell[n, m] = (
-    #                 p ** (n - m)
-    #                 / math.factorial(n)
-    #                 * (math.factorial(n) / math.factorial(m) / math.factorial(n - m))
-    #                 * (mean[0] / variance[0]) ** m
-    #                 * (mean[1] / variance[1]) ** (n - m)
-    #                 * tmp[0]
-    #             )
-
-    #     return (
-    #         term1
-    #         * np.nansum(faInCell)
-    #         / (2 * np.pi * np.sqrt(variance[0]) * np.sqrt(variance[1]) * D1 * D2)
     #     )
