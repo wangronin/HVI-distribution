@@ -1,4 +1,5 @@
 import math
+import warnings
 from typing import List, Union
 
 import numpy as np
@@ -6,6 +7,8 @@ from scipy.integrate import quad
 from scipy.stats import norm
 
 from hypervolume import hypervolume as hv
+
+warnings.simplefilter("error")
 
 __authors__ = ["Kaifeng Yang", "Hao Wang"]
 
@@ -15,10 +18,7 @@ def D(L, U, loc, scale):
 
 
 def integrand_eq4(x, mu, sigma, p):
-    return (
-        np.exp(-0.5 * ((x - mu[0]) ** 2 / sigma[0] ** 2 + (p / x - mu[1]) ** 2 / sigma[1] ** 2))
-        / x
-    )
+    return np.exp(-0.5 * (((x - mu[0]) / sigma[0]) ** 2 + ((p / x - mu[1]) / sigma[1]) ** 2)) / x
 
 
 def integrand_eq6(x, sigma, p, m, n):
@@ -53,7 +53,7 @@ def pdf_product_of_truncated_gaussian(
         alpha = p / U2
         belta = U1
     else:
-        print("error in lb and ub")
+        return 0
 
     if not taylor_expansion:
         out = quad(
@@ -141,13 +141,18 @@ class HypervolumeImprovement:
     ) -> float:
         pareto_front = pareto_front if pareto_front else self.pareto_front
         r = r if r else self.r
-        return hv(np.r_[pareto_front, new].tolist(), r) - hv(pareto_front.tolist(), r)
+        return hv(np.vstack([pareto_front, new]).tolist(), r) - hv(pareto_front.tolist(), r)
 
     def pdf_conditional(self) -> float:
         pass
 
     def pdf(self) -> float:
         pass
+
+    def prob_in_cell(self, mu, sigma, i, j):
+        return D(self.cells_lb[i, j][0], self.cells_ub[i, j][0], mu[0], sigma[0]) * D(
+            self.cells_lb[i, j][1], self.cells_ub[i, j][1], mu[1], sigma[1]
+        )
 
     def cdf_conditional(
         self,
@@ -159,63 +164,56 @@ class HypervolumeImprovement:
         taylor_expansion: bool = False,
         taylor_order: int = 25,
     ) -> float:
-        L1, L2 = self.truncated_lb[i, j]
-        U1, U2 = self.truncated_ub[i, j]
-        mu_ = [self.pareto_front[0, self.N - j] - mu[0], self.pareto_front[1, i] - mu[1]]
+        (L1, L2), (U1, U2) = self.truncated_lb[i, j], self.truncated_ub[i, j]
+        mu_ = [self.pareto_front[self.N - j, 0] - mu[0], self.pareto_front[i, 1] - mu[1]]
         gamma = self.improvement(self.cells_ub[i, j]) - L1 * L2
+        args = (mu_, sigma, [L1, L2], [U1, U2], taylor_expansion, taylor_order)
 
-        a_ = min(a - gamma, U1 * U2)
-        if a_ < L1 * L2:
-            return 0
-
-        prob_ij = D(self.cells_lb[i, j][0], self.cells_ub[i, j][0], mu[0], sigma[0]) * D(
-            self.cells_lb[i, j][1], self.cells_ub[i, j][1], mu[0], sigma[1]
-        )
-        if taylor_expansion:
-            out = quad(
-                pdf_product_of_truncated_gaussian,
-                L1 * L2,
-                a_,
-                args=(mu_, sigma, [L1, L2], [U1, U2], True, taylor_order),
-            )[0]
-        else:
-            out = quad(
-                pdf_product_of_truncated_gaussian,
-                L1 * L2,
-                a_,
-                args=(mu_, sigma, [L1, L2], [U1, U2]),
-                limit=50,
-            )[0]
-        return out * prob_ij
+        out = np.zeros(len(a))
+        a_ = np.clip(a - gamma, -np.inf, U1 * U2)
+        for k, u in enumerate(a_):
+            if u < L1 * L2:
+                out[k] = 0
+                continue
+            l = L1 * L2 if k == 0 else max(a_[k - 1], L1 * L2)
+            out[k] = quad(pdf_product_of_truncated_gaussian, l, u, args=args)[0]
+        return np.cumsum(out)
 
     def cdf_monte_carlo(
-        self, a: float, mu: List[float], sigma: List[float], N: int = 1e5
-    ) -> float:
+        self,
+        a: Union[float, List[float], np.ndarray],
+        mu: List[float],
+        sigma: List[float],
+        n_sample: int = 1e5,
+    ) -> np.ndarray:
+        if isinstance(a, (int, float)):
+            a = [a]
         mu, sigma = np.array(mu), np.array(sigma)
-        sample = mu + sigma * np.random.randn(N, self.dim)
-        fun = lambda x: hv(np.r_[self.pareto_front, x].tolist(), self.r)
+        sample = mu + sigma * np.random.randn(int(n_sample), self.dim)
+        fun = lambda x: hv(np.vstack([self.pareto_front.tolist(), x]), self.r)
+        mc_fun = lambda a, delta: np.sum(delta <= a) / (1.0 * n_sample)
         delta = np.array(list(map(fun, sample))) - hv(self.pareto_front.tolist(), self.r)
-        return np.sum(np.bitwise_and(delta > 0, delta <= a)) / (1.0 * N)
+        return np.array([mc_fun(_, delta) for _ in a])
 
     def cdf(
         self,
-        a: float,
+        a: Union[float, List[float], np.ndarray],
         mu: List[float],
         sigma: List[float],
         taylor_expansion: bool = False,
         taylor_order: int = 25,
     ) -> float:
-        terms = np.zeros((self.N, self.N))
+        if isinstance(a, (int, float)):
+            a = [a]
+        a = np.array(a)
+        terms = np.zeros((self.N, self.N, len(a)))
+        prob = 0  # probability of sampling in the dominating region w.r.t. the attainment boundary
         for i in range(self.N):
             for j in range(self.N - i):
-                terms[i, j] = self.cdf_conditional(
-                    a, mu, sigma, i, j, taylor_expansion, taylor_order
+                prob_ij = self.prob_in_cell(mu, sigma, i, j)
+                terms[i, j, :] = (
+                    self.cdf_conditional(a, mu, sigma, i, j, taylor_expansion, taylor_order)
+                    * prob_ij
                 )
-        return np.sum(terms)
-
-    # def density_cosh(self, x, mean, variance, p, m, n):
-    #     return (
-    #         0.5
-    #         * (np.sqrt(variance[0] / variance[1] * p) ** (m - n / 2))
-    #         * (np.exp(-p / np.sqrt(variance[0] * variance[1]) * np.cosh(x) + (m - n / 2) * x))
-    #     )
+                prob += prob_ij
+        return np.sum(terms, axis=(0, 1)) + (1 - prob)
