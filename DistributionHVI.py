@@ -195,7 +195,7 @@ class HypervolumeImprovement:
         v: Union[float, List[float], np.ndarray],
         func: Callable,
         parallel: bool = True,
-        n_jobs: int = 4,
+        n_jobs: int = 6,
         **kwargs,
     ) -> Tuple[float, float]:
         if isinstance(v, (int, float)):
@@ -205,17 +205,15 @@ class HypervolumeImprovement:
         terms = np.zeros((self.N, self.N, len(v)))
         ij = [(i, j) for i in range(self.N) for j in range(self.N - i)]
         prob = 0  # probability in the dominating region w.r.t. the attainment boundary
-        if parallel:
-            res = Parallel(n_jobs=n_jobs)(delayed(func)(v, i, j, **kwargs) for i, j in ij)
-            for k, (i, j) in enumerate(ij):
-                prob_ij = self.prob_in_cell(i, j)
-                terms[i, j, :] = res[k] * prob_ij
-                prob += prob_ij
-        else:
-            for i, j in ij:
-                prob_ij = self.prob_in_cell(i, j)
-                terms[i, j, :] = func(v, i, j, **kwargs) * prob_ij
-                prob += prob_ij
+        res = (
+            Parallel(n_jobs=n_jobs)(delayed(func)(v, i, j, **kwargs) for i, j in ij)
+            if parallel
+            else [func(v, i, j, **kwargs) for i, j in ij]
+        )
+        for k, (i, j) in enumerate(ij):
+            prob_ij = self.prob_in_cell(i, j)
+            terms[i, j, :] = res[k] * prob_ij
+            prob += prob_ij
         return terms.sum(axis=(0, 1)), prob
 
     def pdf_conditional(
