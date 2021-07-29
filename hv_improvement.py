@@ -1,10 +1,10 @@
-import math
 import warnings
 from typing import Callable, List, Tuple, Union
 
 import numpy as np
 from joblib import Parallel, delayed
 from scipy.integrate import quad
+from scipy.special import binom, factorial
 from scipy.stats import norm
 
 from hypervolume import hypervolume as hv
@@ -22,20 +22,17 @@ def integrand_eq4(x, mu, sigma, p):
     return np.exp(-0.5 * (((x - mu[0]) / sigma[0]) ** 2 + ((p / x - mu[1]) / sigma[1]) ** 2)) / x
 
 
-def integrand_eq6(x, sigma, p, m, n):
-    return x ** (2 * m - n - 1) * np.exp(
-        -0.5 * (x ** 2 / sigma[0] ** 2 + p ** 2 / (x ** 2 * sigma[1] ** 2))
-    )
-
-
 def pdf_product_of_truncated_gaussian(
     p: float,
     mean: List[float],
     sigma: List[float],
     lower: List[float],
     upper: List[float],
+    normalizer: float,
     taylor_expansion: bool = False,
-    taylor_order: int = 25,
+    taylor_order: int = 5,
+    fac: List[float] = None,
+    bc: List[List[float]] = None,
 ) -> float:
     (L1, L2), (U1, U2) = lower, upper
     if L1 * U2 > U1 * L2:  # swap y_1' and y_2'
@@ -43,53 +40,74 @@ def pdf_product_of_truncated_gaussian(
         mean = mean[1], mean[0]
         sigma = sigma[1], sigma[0]
 
-    D1, D2 = D(L1, U1, mean[0], sigma[0]), D(L2, U2, mean[1], sigma[1])
     if L1 * L2 <= p < L1 * U2:
         alpha = L1
-        belta = p / L2
+        beta = p / L2
     elif L1 * U2 <= p < U1 * L2:
         alpha = p / U2
-        belta = p / L2
+        beta = p / L2
     elif U1 * L2 <= p <= U1 * U2:
         alpha = p / U2
-        belta = U1
+        beta = U1
     else:
+        return 0
+
+    if alpha == beta:
         return 0
 
     if not taylor_expansion:
         out = quad(
             integrand_eq4,
             alpha,
-            belta,
+            beta,
             args=(mean, sigma, p),
             limit=1000,
             epsabs=1e-30,
             epsrel=1e-10,
         )[0]
     else:
-        K = taylor_order
-        faInCell = np.zeros((K, K + 1))
-        term1 = np.exp(-0.5 * (mean[0] ** 2 / sigma[0] ** 2 + mean[1] ** 2 / sigma[1] ** 2))
-        for n in range(K):
-            for m in range(n + 1):
-                res = quad(
-                    integrand_eq6,
-                    alpha,
-                    belta,
-                    args=(sigma, p, m, n),
-                )[0]
+        eta = np.log(sigma[1]) - np.log(sigma[0] * p)
+        # range of the integration
+        L, U = 2 * np.log(alpha) + eta, 2 * np.log(beta) + eta
+        # expand the integrand at the mid point
+        x = (L + U) / 2
 
-                faInCell[n, m] = (
+        C1 = p / np.prod(sigma)
+        C2 = np.array([(2 * m - n) / 2 for n in range(taylor_order) for m in range(n + 1)])
+        C = np.exp(-0.5 * (mean[0] ** 2 / sigma[0] ** 2 + mean[1] ** 2 / sigma[1] ** 2))
+        mn = [(m, n) for n in range(taylor_order) for m in range(n + 1)]
+        term1 = np.array(
+            [
+                (
                     p ** (n - m)
-                    / math.factorial(n)
-                    * (math.factorial(n) / math.factorial(m) / math.factorial(n - m))
+                    / fac[n]
+                    * bc[n][m]
                     * (mean[0] / sigma[0] ** 2) ** m
                     * (mean[1] / sigma[1] ** 2) ** (n - m)
-                    * res
                 )
-        out = term1 * np.nansum(faInCell)
+                for m, n in mn
+            ]
+        )
+        term2 = np.array([0.5 * (p * sigma[0] / sigma[1]) ** ((2 * m - n) / 2) for m, n in mn])
 
-    return out / (2 * np.pi * sigma[0] * sigma[1] * D1 * D2)
+        f = np.exp(-C1 * np.cosh(x) + C2 * x)  # the integrand
+        a = f * (C2 - C1 * np.sinh(x))  # first-order derivative
+        b = f * ((C2 - C1 * np.sinh(x)) ** 2 - C1 * np.cosh(x))  # second-order derivative
+        # second-order Taylor approximation of the integral
+        out = (
+            C
+            * (
+                term1
+                * term2
+                * (
+                    (U - L) * f
+                    + ((U - x) ** 2 - (L - x) ** 2) * a / 2
+                    + ((U - x) ** 3 - (L - x) ** 3) * b / 6
+                )
+            ).sum()
+        )
+
+    return out / normalizer
 
 
 class HypervolumeImprovement:
@@ -138,6 +156,7 @@ class HypervolumeImprovement:
         self.cells_ub = np.full((self.N, self.N, self.dim), np.nan)
         self.transformed_lb = np.full((self.N, self.N, self.dim), np.nan)
         self.transformed_ub = np.full((self.N, self.N, self.dim), np.nan)
+        self.normalizer = np.full((self.N, self.N), np.nan)
         for i in range(self.N):
             for j in range(self.N - i):
                 self.cells_lb[i, j] = [pareto_front[i, 0], pareto_front[self.N - j, 1]]
@@ -150,6 +169,23 @@ class HypervolumeImprovement:
                     pareto_front[self.N - j, 0] - pareto_front[i, 0],
                     pareto_front[i, 1] - pareto_front[self.N - j, 1],
                 ]
+                mu_prime = self.mu_prime(i, j)
+                self.normalizer[i, j] = (
+                    2
+                    * np.pi
+                    * np.prod(self.sigma)
+                    * np.prod(
+                        [
+                            D(
+                                self.transformed_lb[i, j, k],
+                                self.transformed_ub[i, j, k],
+                                mu_prime[k],
+                                self.sigma[k],
+                            )
+                            for k in range(self.dim)
+                        ]
+                    )
+                )
 
     def mu_prime(self, i: int, j: int) -> List[float]:
         return [
@@ -194,7 +230,7 @@ class HypervolumeImprovement:
         self,
         v: Union[float, List[float], np.ndarray],
         func: Callable,
-        parallel: bool = True,
+        parallel: bool = False,
         n_jobs: int = 6,
         **kwargs,
     ) -> Tuple[float, float]:
@@ -314,8 +350,11 @@ class HypervolumeImprovement:
             self.sigma,
             self.transformed_lb[i, j],
             self.transformed_ub[i, j],
+            self.normalizer[i, j],
             taylor_expansion,
             taylor_order,
+            self.fac,
+            self.bc,
         )
         idx = v.argsort()
         out = np.zeros(len(v))
@@ -329,7 +368,7 @@ class HypervolumeImprovement:
         self,
         v: Union[float, List[float], np.ndarray],
         taylor_expansion: bool = False,
-        taylor_order: int = 25,
+        taylor_order: int = 6,
     ) -> np.ndarray:
         """CDF of the hypervolume
 
@@ -347,6 +386,9 @@ class HypervolumeImprovement:
         np.ndarray
             the cumulative probability at volume `v`
         """
+        if taylor_expansion:
+            self.fac = [factorial(i) for i in range(taylor_order)]
+            self.bc = [[binom(i, j) for j in range(i + 1)] for i in range(taylor_order)]
         res, prob = self.__internal_loop_over_cells(
             v, self.cdf_conditional, taylor_expansion=taylor_expansion, taylor_order=taylor_order
         )
