@@ -9,12 +9,14 @@ r = np.array([6, 6])
 pf = np.array([[3, 4], [1, 5], [5, 1]])
 
 mu = np.array([2, 3])  # mean of f1 and f2
-sigma = np.array([5, 5])  # standard deviation
+sigma = np.array([1, 1])  # standard deviation
 
 avals = 10 ** np.linspace(-10, np.log10(60), 30)
 hvi = HypervolumeImprovement(pf, r, mu, sigma)
 
 rst_all_ex = hvi.cdf(avals, taylor_expansion=True)
+# rst_all_ex2 = hvi.pdf(avals, taylor_expansion=True)
+# rst_all_ex2.sort()
 rst_all_ex.sort()
 print(rst_all_ex)
 

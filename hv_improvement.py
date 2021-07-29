@@ -280,8 +280,11 @@ class HypervolumeImprovement:
             self.sigma,
             self.transformed_lb[i, j],
             self.transformed_ub[i, j],
+            self.normalizer[i, j],
             taylor_expansion,
             taylor_order,
+            self.fac,
+            self.bc,
         )
         return np.array([pdf_product_of_truncated_gaussian(_, *par) for _ in v - self.gamma(i, j)])
 
@@ -289,7 +292,7 @@ class HypervolumeImprovement:
         self,
         v: Union[float, List[float], np.ndarray],
         taylor_expansion: bool = False,
-        taylor_order: int = 25,
+        taylor_order: int = 6,
     ) -> np.ndarray:
         """PDF of the hypervolume
 
@@ -307,6 +310,9 @@ class HypervolumeImprovement:
         np.ndarray
             the probability density at volume `v`
         """
+        if taylor_expansion:
+            self.fac = [factorial(i) for i in range(taylor_order)]
+            self.bc = [[binom(i, j) for j in range(i + 1)] for i in range(taylor_order)]
         res, prob = self.__internal_loop_over_cells(
             v, self.pdf_conditional, taylor_expansion=taylor_expansion, taylor_order=taylor_order
         )
