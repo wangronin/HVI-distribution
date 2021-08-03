@@ -1,8 +1,13 @@
+from __future__ import annotations
+
 import warnings
 from typing import Callable, List, Tuple, Union
 
 import numpy as np
 from joblib import Parallel, delayed
+from numba import cfunc, jit
+from numba.types import CPointer, float64, intc
+from scipy import LowLevelCallable
 from scipy.integrate import quad
 from scipy.special import binom, factorial
 from scipy.stats import norm
@@ -18,8 +23,28 @@ def D(L, U, loc, scale):
     return norm.cdf(U, loc, scale) - norm.cdf(L, loc, scale)
 
 
-def integrand_eq4(x, mu, sigma, p):
-    return np.exp(-0.5 * (((x - mu[0]) / sigma[0]) ** 2 + ((p / x - mu[1]) / sigma[1]) ** 2)) / x
+def jit_integrand_function(integrand_function):
+    jitted_function = jit(integrand_function, nopython=True)
+
+    @cfunc(float64(intc, CPointer(float64)))
+    def wrapped(_, xx):
+        return jitted_function(xx[0], xx[1], xx[2], xx[3], xx[4], xx[5])
+
+    return LowLevelCallable(wrapped.ctypes)
+
+
+@jit_integrand_function
+def integrand_eq4(x, *args):
+    mu0, mu1, sigma0, sigma1, p = args
+    return np.exp(-0.5 * (((x - mu0) / sigma0) ** 2 + ((p / x - mu1) / sigma1) ** 2)) / x
+
+
+# def integrand_eq4(x, mu, sigma, p):
+#     return np.exp(-0.5 * (((x - mu[0]) / sigma[0]) ** 2 + ((p / x - mu[1]) / sigma[1]) ** 2)) / x
+
+
+def integrand_eq7(x, m, n, sigma, p):
+    return x ** (2 * m - n - 1) * np.exp(-0.5 * ((x / sigma[0]) ** 2 + (p / x / sigma[1]) ** 2))
 
 
 def pdf_product_of_truncated_gaussian(
@@ -56,26 +81,16 @@ def pdf_product_of_truncated_gaussian(
         return 0
 
     if not taylor_expansion:
-        out = quad(
-            integrand_eq4,
-            alpha,
-            beta,
-            args=(mean, sigma, p),
-            limit=1000,
-            epsabs=1e-30,
-            epsrel=1e-10,
-        )[0]
+        out = quad(integrand_eq4, alpha, beta, args=(mean[0], mean[1], sigma[0], sigma[1], p))[0]
     else:
         eta = np.log(sigma[1]) - np.log(sigma[0] * p)
         # range of the integration
         L, U = 2 * np.log(alpha) + eta, 2 * np.log(beta) + eta
-        # expand the integrand at the mid point
-        x = (L + U) / 2
 
         C1 = p / np.prod(sigma)
         C2 = np.array([(2 * m - n) / 2 for n in range(taylor_order) for m in range(n + 1)])
         C = np.exp(-0.5 * (mean[0] ** 2 / sigma[0] ** 2 + mean[1] ** 2 / sigma[1] ** 2))
-        mn = [(m, n) for n in range(taylor_order) for m in range(n + 1)]
+        mn = np.array([(m, n) for n in range(taylor_order) for m in range(n + 1)])
         term1 = np.array(
             [
                 (
@@ -88,24 +103,47 @@ def pdf_product_of_truncated_gaussian(
                 for m, n in mn
             ]
         )
-        term2 = np.array([0.5 * (p * sigma[0] / sigma[1]) ** ((2 * m - n) / 2) for m, n in mn])
 
-        f = np.exp(-C1 * np.cosh(x) + C2 * x)  # the integrand
-        a = f * (C2 - C1 * np.sinh(x))  # first-order derivative
-        b = f * ((C2 - C1 * np.sinh(x)) ** 2 - C1 * np.cosh(x))  # second-order derivative
-        # second-order Taylor approximation of the integral
-        out = (
-            C
-            * (
-                term1
-                * term2
-                * (
-                    (U - L) * f
-                    + ((U - x) ** 2 - (L - x) ** 2) * a / 2
-                    + ((U - x) ** 3 - (L - x) ** 3) * b / 6
+        if 1 < 2:
+            out = (
+                C
+                * term1
+                * np.array(
+                    [
+                        quad(
+                            integrand_eq7,
+                            alpha,
+                            beta,
+                            args=(m, n, sigma, p),
+                        )[0]
+                        for m, n in mn
+                    ]
                 )
             ).sum()
-        )
+        else:
+            term2 = np.array([0.5 * (p * sigma[0] / sigma[1]) ** ((2 * m - n) / 2) for m, n in mn])
+            bs = (U - L) / 50
+            breaks = [(L + bs * i, L + bs * (i + 1)) for i in range(50)]
+            out = np.zeros(len(C2))
+            for l, u in breaks:
+                # expand the integrand at the mid point
+                x = (l + u) / 2
+                f = np.exp(-C1 * np.cosh(x) + C2 * x)  # the integrand
+                a = f * (C2 - C1 * np.sinh(x))  # first-order derivative
+                b = f * ((C2 - C1 * np.sinh(x)) ** 2 - C1 * np.cosh(x))  # second-order derivative
+                # c = (
+                #     f * (C1 * np.sinh(x) - 2 * C1 * np.cosh(x) * (C2 - C1 * np.cosh(x)))
+                #     + ((C2 - C1 * np.sinh(x)) ** 2 - C1 * np.cosh(x)) * a
+                # )  # third-order derivative
+
+                # second-order Taylor approximation of the integral
+                out += (
+                    (u - l) * f
+                    + ((u - x) ** 2 - (l - x) ** 2) * a / 2
+                    + ((u - x) ** 3 - (l - x) ** 3) * b / 6
+                    # + ((u - x) ** 4 - (l - x) ** 4) * c / 24
+                )
+            out = C * (term1 * term2 * out).sum()
 
     return out / normalizer
 
@@ -136,7 +174,7 @@ class HypervolumeImprovement:
     @r.setter
     def r(self, r):
         self.dim = len(r)
-        self._r = r
+        self._r = np.asarray(r)
 
     @property
     def pareto_front(self):
@@ -313,8 +351,13 @@ class HypervolumeImprovement:
         if taylor_expansion:
             self.fac = [factorial(i) for i in range(taylor_order)]
             self.bc = [[binom(i, j) for j in range(i + 1)] for i in range(taylor_order)]
+        else:
+            self.fac, self.bc = None, None
         res, prob = self.__internal_loop_over_cells(
-            v, self.pdf_conditional, taylor_expansion=taylor_expansion, taylor_order=taylor_order
+            v,
+            self.pdf_conditional,
+            taylor_expansion=taylor_expansion,
+            taylor_order=taylor_order,
         )
         # NOTE: the density at zero volume is a Dirac delta
         if np.any(res == 0):
@@ -366,7 +409,7 @@ class HypervolumeImprovement:
         out = np.zeros(len(v))
         v = np.clip(v[idx] - self.gamma(i, j), L, U)
         bounds = [(L if k == 0 else v[k - 1], vv) for k, vv in enumerate(v)]
-        func = lambda l, u: quad(pdf_product_of_truncated_gaussian, l, u, args=args)[0]
+        func = lambda l, u: quad(pdf_product_of_truncated_gaussian, l, u, args=args, limit=1000)[0]
         out[idx] = np.cumsum([func(*b) for b in bounds])
         return out
 
@@ -395,6 +438,8 @@ class HypervolumeImprovement:
         if taylor_expansion:
             self.fac = [factorial(i) for i in range(taylor_order)]
             self.bc = [[binom(i, j) for j in range(i + 1)] for i in range(taylor_order)]
+        else:
+            self.fac, self.bc = None, None
         res, prob = self.__internal_loop_over_cells(
             v, self.cdf_conditional, taylor_expansion=taylor_expansion, taylor_order=taylor_order
         )
@@ -416,7 +461,8 @@ class HypervolumeImprovement:
         n_sample : int, optional
             the sample size, by default 1e5
         eval_sd: bool, optional
-            whether to estimate the standard deviation of the estimate via boostrapping, by default False
+            whether to estimate the standard deviation of the estimate via boostrapping,
+            by default False
         n_boostrap: bool, optional
             the boostrap size, by default 1e2
 
@@ -429,7 +475,7 @@ class HypervolumeImprovement:
             v = [v]
         sample = self.mu + self.sigma * np.random.randn(int(n_sample), self.dim)
         fun = lambda x: hv(np.vstack([self.pareto_front.tolist(), x]), self.r)
-        mc_fun = lambda v, delta: np.sum(delta <= v) / (1.0 * n_sample)
+        mc_fun = lambda v, delta: np.sum(delta < v) / (1.0 * n_sample)
         delta = np.array(list(map(fun, sample))) - hv(self.pareto_front.tolist(), self.r)
         estimate = np.array([mc_fun(_, delta) for _ in v])
         if eval_sd:
