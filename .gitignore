@@ -4,6 +4,7 @@
 *.pdf
 *.csv
 *.h5
+*.ipynb
 
 **/*.pyc
 **/**/*.pyc
