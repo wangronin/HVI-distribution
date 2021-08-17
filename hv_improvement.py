@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 import warnings
 from typing import Callable, List, Tuple, Union
 
@@ -10,7 +11,7 @@ from numba.types import CPointer, float64, intc
 from scipy import LowLevelCallable
 from scipy.integrate import quad
 from scipy.special import binom, factorial
-from scipy.stats import norm
+from scipy.stats import norm, truncnorm
 
 from hypervolume import hypervolume as hv
 
@@ -30,13 +31,24 @@ def jit_integrand(integrand_function):
 
 
 def D(L, U, loc, scale):
-    return norm.cdf(U, loc, scale) - norm.cdf(L, loc, scale)
+    out = norm.cdf(U, loc, scale) - norm.cdf(L, loc, scale)
+    if out == 0:
+        val = np.mean(
+            norm.pdf(np.linspace(L, U, 10), loc=loc, scale=scale)
+            / truncnorm.pdf(
+                np.linspace(L, U, 10), (L - loc) / scale, (U - loc) / scale, loc=loc, scale=scale
+            )
+        )
+        if not np.isnan(val):
+            out = val
+    return out
 
 
 @jit_integrand
 def integrand_eq4(*args):
     x, mu0, mu1, sigma0, sigma1, p = args
-    return np.exp(-0.5 * (((x - mu0) / sigma0) ** 2 + ((p / x - mu1) / sigma1) ** 2)) / x
+    out = np.exp(-0.5 * (((x - mu0) / sigma0) ** 2 + ((p / x - mu1) / sigma1) ** 2)) / x
+    return out
 
 
 def integrand_eq7(x, m, n, sigma, p):
@@ -80,9 +92,25 @@ def pdf_product_of_truncated_gaussian(
         with warnings.catch_warnings():
             warnings.simplefilter("error")
             try:
-                out = quad(
-                    integrand_eq4, alpha, beta, args=(mean[0], mean[1], sigma[0], sigma[1], p)
-                )[0]
+                if alpha <= 0 <= beta:
+                    out = (
+                        quad(
+                            integrand_eq4,
+                            alpha,
+                            -1 * sys.float_info.min,
+                            args=(mean[0], mean[1], sigma[0], sigma[1], p),
+                        )[0]
+                        + quad(
+                            integrand_eq4,
+                            sys.float_info.min,
+                            beta,
+                            args=(mean[0], mean[1], sigma[0], sigma[1], p),
+                        )[0]
+                    )
+                else:
+                    out = quad(
+                        integrand_eq4, alpha, beta, args=(mean[0], mean[1], sigma[0], sigma[1], p)
+                    )[0]
             except Warning:
                 out = 0
     else:
@@ -147,10 +175,12 @@ class HypervolumeImprovement:
         self.sigma = np.array(sigma)
         assert len(self.mu) == len(self.sigma)
         # 6-sigma corresponds to ~1.973175e-09 significance
-        self.neg_inf: float = self.mu - 6.0 * self.sigma
+        self.neg_inf: List[float] = self.mu - 6.0 * self.sigma
         self.r = r
         self.pareto_front = pareto_front
         self.set_cells(self.pareto_front)
+        self.fac: List[int] = None
+        self.bc: List[float] = None
 
     @property
     def r(self):
@@ -167,8 +197,11 @@ class HypervolumeImprovement:
 
     @pareto_front.setter
     def pareto_front(self, pareto_front):
+        pareto_front = np.atleast_2d(pareto_front)
+        _min = pareto_front.min(axis=0) - 1
+        self.neg_inf = [min(self.neg_inf[0], _min[0]), min(self.neg_inf[1], _min[1])]
         pareto_front = np.vstack(
-            (pareto_front, [self.neg_inf[0], self.r[1]], [self.r[0], self.neg_inf[1]])
+            [pareto_front, [self.neg_inf[0], self.r[1]], [self.r[0], self.neg_inf[1]]]
         )
         idx = pareto_front[:, 0].argsort()
         self._pareto_front = pareto_front[idx]
@@ -286,7 +319,7 @@ class HypervolumeImprovement:
             prob_ij = self.prob_in_cell(i, j)
             terms[i, j, :] = res[k] * prob_ij
             prob += prob_ij
-        return terms.sum(axis=(0, 1)), prob
+        return np.nansum(terms, axis=(0, 1)), prob
 
     def pdf_conditional(
         self, v: np.ndarray, i: int, j: int, taylor_expansion: bool = False, taylor_order: int = 25

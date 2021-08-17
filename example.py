@@ -8,15 +8,15 @@ r = np.array([6, 6])
 # Pareto-front approximation set
 pf = np.array([[3, 4], [1, 5], [5, 1]])
 
-mu = np.array([0, 0])  # mean of f1 and f2
+mu = np.array([5.5, 0.5])  # mean of f1 and f2
 sigma = np.array([0.3, 0.3])  # standard deviation
 
-avals = 10 ** np.linspace(1.5, np.log10(50), 50)
+avals = 10 ** np.linspace(-2, np.log10(50), 50)
 hvi = HypervolumeImprovement(pf, r, mu, sigma)
 
 rst_all_ex = hvi.cdf(avals)
 # pdf_ex = hvi.pdf(avals, taylor_expansion=True, taylor_order=60)
-# pdf_ex2 = hvi.pdf(1e-10, taylor_expansion=False)
+# pdf_ex2 = hvi.pdf(1, taylor_expansion=False)
 # rst_all_ex.sort()
 # print(pdf_ex2)
 print(rst_all_ex)
