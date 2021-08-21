@@ -4,7 +4,8 @@ import sys
 import warnings
 from typing import Callable, List, Tuple, Union
 
-import numpy as np
+
+
 from joblib import Parallel, delayed
 from numba import cfunc, jit
 from numba.types import CPointer, float64, intc
@@ -13,7 +14,10 @@ from scipy.integrate import quad
 from scipy.special import binom, factorial
 from scipy.stats import norm, truncnorm
 
-from hypervolume import hypervolume as hv
+import numpy as np
+np.seterr(divide='ignore', invalid='ignore')
+
+from .hypervolume import hypervolume as hv
 
 warnings.simplefilter("error")
 
@@ -21,11 +25,12 @@ __authors__ = ["Kaifeng Yang", "Hao Wang"]
 
 
 def jit_integrand(integrand_function):
-    jitted_function = jit(integrand_function, nopython=True)
+    jitted_function = jit(integrand_function, nopython=True, error_model='numpy')
 
     @cfunc(float64(intc, CPointer(float64)))
     def wrapped(_, xx):
         return jitted_function(xx[0], xx[1], xx[2], xx[3], xx[4], xx[5])
+    
 
     return LowLevelCallable(wrapped.ctypes)
 
@@ -99,17 +104,20 @@ def pdf_product_of_truncated_gaussian(
                             alpha,
                             -1 * sys.float_info.min,
                             args=(mean[0], mean[1], sigma[0], sigma[1], p),
+                            # limit = 100,
                         )[0]
                         + quad(
                             integrand_eq4,
                             sys.float_info.min,
                             beta,
                             args=(mean[0], mean[1], sigma[0], sigma[1], p),
+                            # limit = 100,
                         )[0]
                     )
                 else:
                     out = quad(
-                        integrand_eq4, alpha, beta, args=(mean[0], mean[1], sigma[0], sigma[1], p)
+                        integrand_eq4, alpha, beta, args=(mean[0], mean[1], sigma[0], sigma[1], p), 
+                        # limit = 100,
                     )[0]
             except Warning:
                 out = 0
@@ -157,8 +165,11 @@ def pdf_product_of_truncated_gaussian(
                 # + ((u - x) ** 4 - (l - x) ** 4) * c / 24
             )
         out = C * (term1 * term2 * out).sum()
-
-    return out / normalizer
+        
+    if out == 0 and normalizer == 0:
+        return 0
+    else: 
+        return out / normalizer
 
 
 class HypervolumeImprovement:
@@ -438,8 +449,13 @@ class HypervolumeImprovement:
         out = np.zeros(len(v))
         v = np.clip(v[idx] - self.gamma(i, j), L, U)
         bounds = [(L if k == 0 else v[k - 1], vv) for k, vv in enumerate(v)]
-        func = lambda l, u: quad(pdf_product_of_truncated_gaussian, l, u, args=args)[0]
-        out[idx] = np.cumsum([func(*b) for b in bounds])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            func = lambda l, u: quad(pdf_product_of_truncated_gaussian, l, u, args=args, limit = 100)[0]
+            
+            # func = lambda l, u: quad(pdf_product_of_truncated_gaussian, l, u,
+            #                          args=args, weight='alg', wvar=(-1/2, -1/2))[0]
+            out[idx] = np.cumsum([func(*b) for b in bounds])
         return out
 
     def cdf(
@@ -464,6 +480,7 @@ class HypervolumeImprovement:
         np.ndarray
             the cumulative probability at volume `v`
         """
+        
         v = self._check_input(v, taylor_expansion, taylor_order)
         if taylor_expansion:
             self.fac = [factorial(i) for i in range(taylor_order)]
@@ -473,6 +490,10 @@ class HypervolumeImprovement:
         res, prob = self.__internal_loop_over_cells(
             v, self.cdf_conditional, taylor_expansion=taylor_expansion, taylor_order=taylor_order
         )
+        
+        res[res == np.inf] = 0
+        if np.isnan(prob):
+            prob = 0
         return res + (1 - prob)
 
     def cdf_monte_carlo(
