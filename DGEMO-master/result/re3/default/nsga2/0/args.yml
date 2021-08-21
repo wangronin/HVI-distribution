@@ -1,0 +1,17 @@
+!!python/object:argparse.Namespace
+problem: re3
+n_var: 2
+n_obj: 2
+n_init_sample: 50
+n_iter: 1
+ref_point:
+- 5885.487048422043
+- 5.506257052967797
+batch_size: 10
+pop_init_method: nds
+seed: 0
+subfolder: default
+exp_name: null
+log_to_file: true
+n_process: 1
+algo: nsga2
