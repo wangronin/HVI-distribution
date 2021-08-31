@@ -19,7 +19,7 @@ from .hypervolume import hypervolume as hv
 
 warnings.simplefilter("error")
 
-__authors__ = ["Kaifeng Yang", "Hao Wang"]
+__authors__ = ["Hao Wang", "Kaifeng Yang"]
 
 
 def jit_integrand(integrand_function):
@@ -101,14 +101,12 @@ def pdf_product_of_truncated_gaussian(
                             alpha,
                             -1 * sys.float_info.min,
                             args=(mean[0], mean[1], sigma[0], sigma[1], p),
-                            # limit = 100,
                         )[0]
                         + quad(
                             integrand_eq4,
                             sys.float_info.min,
                             beta,
                             args=(mean[0], mean[1], sigma[0], sigma[1], p),
-                            # limit = 100,
                         )[0]
                     )
                 else:
@@ -117,7 +115,6 @@ def pdf_product_of_truncated_gaussian(
                         alpha,
                         beta,
                         args=(mean[0], mean[1], sigma[0], sigma[1], p),
-                        # limit = 100,
                     )[0]
             except Warning:
                 out = 0
@@ -168,8 +165,7 @@ def pdf_product_of_truncated_gaussian(
 
     if out == 0 and normalizer == 0:
         return 0
-    else:
-        return out / normalizer
+    return out / normalizer
 
 
 class HypervolumeImprovement:
@@ -454,8 +450,6 @@ class HypervolumeImprovement:
             func = lambda l, u: quad(
                 pdf_product_of_truncated_gaussian, l, u, args=args, limit=100
             )[0]
-            # func = lambda l, u: quad(pdf_product_of_truncated_gaussian, l, u,
-            #                          args=args, weight='alg', wvar=(-1/2, -1/2))[0]
             out[idx] = np.cumsum([func(*b) for b in bounds])
         return out
 

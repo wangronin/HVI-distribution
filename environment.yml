@@ -75,3 +75,4 @@ dependencies:
     - sphinxcontrib-qthelp==1.0.3
     - sphinxcontrib-serializinghtml==1.1.4
     - urllib3==1.25.8
+    - bayes-optim>=0.2.4

@@ -1,16 +1,17 @@
 from abc import ABC, abstractmethod
-from sklearn.preprocessing import StandardScaler
-import numpy as np
 
-'''
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+
+"""
 Data transformations (normalizations) for fitting surrogate model
-'''
+"""
 
 
 ### 1-dim scaler
 
+
 class Scaler(ABC):
-    
     def fit(self, X):
         return self
 
@@ -24,9 +25,10 @@ class Scaler(ABC):
 
 
 class BoundedScaler(Scaler):
-    '''
+    """
     Scale data to [0, 1] according to bounds
-    '''
+    """
+
     def __init__(self, bounds):
         self.bounds = bounds
 
@@ -37,10 +39,22 @@ class BoundedScaler(Scaler):
         return np.clip(X, 0, 1) * (self.bounds[1] - self.bounds[0]) + self.bounds[0]
 
 
+class MockupScaler(Scaler):
+    """
+    Scale data to [0, 1] according to bounds
+    """
+
+    def transform(self, X):
+        return X
+
+    def inverse_transform(self, X):
+        return X
+
+
 ### 2-dim transformation
 
-class Transformation:
 
+class Transformation:
     def __init__(self, x_scaler, y_scaler):
         self.x_scaler = x_scaler
         self.y_scaler = y_scaler
@@ -86,13 +100,13 @@ class Transformation:
             return x_res
         elif y is not None:
             return y_res
-    
+
 
 class StandardTransform(Transformation):
-
     def __init__(self, x_bound):
-        super().__init__(
-            BoundedScaler(x_bound),
-            StandardScaler()
-        )
+        super().__init__(BoundedScaler(x_bound), StandardScaler())
 
+
+class NonStandardTransform(Transformation):
+    def __init__(self):
+        super().__init__(MockupScaler(), StandardScaler())
