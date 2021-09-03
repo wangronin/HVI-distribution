@@ -258,7 +258,7 @@ class HVI_UCB(Acquisition):
         self.pf = find_pareto_front(Y, return_index=False)
         self.rf = np.max(Y, axis=0) + 1
 
-    def evaluate(self, val, **_):
+    def evaluate(self, val, calc_gradient=False, calc_hessian=False):
         dF, hF = None, None
         pf = self.pf
         mu, sigma = val["F"], val["S"]
@@ -273,7 +273,7 @@ class HVI_UCB(Acquisition):
             sol = minimize(func, 1, method="CG", options={"maxiter": 30})
 
             if abs(sol.fun) > 0.2:
-                F[i] = np.inf  # y
+                F[i] = np.inf   # y
                 dF[i] = np.inf  # a
             else:
                 F[i] = sol.fun

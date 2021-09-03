@@ -83,7 +83,9 @@ class GaussianProcess(SurrogateModel):
 
             ell = np.exp(gp.kernel_.theta[1:-1]) # ell: shape (n_var,)
             sf2 = np.exp(gp.kernel_.theta[0]) # sf2: shape (1,)
+            
             d = np.expand_dims(cdist(X / ell, gp.X_train_ / ell), 2) # d: shape (N, N_train, 1)
+            
             X_, X_train_ = np.expand_dims(X, 1), np.expand_dims(gp.X_train_, 0)
             dd_N = X_ - X_train_ # numerator
             dd_D = d * ell ** 2 # denominator

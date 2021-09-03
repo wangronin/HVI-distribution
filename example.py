@@ -8,6 +8,8 @@ from mobo.algorithms import get_algorithm
 from utils import save_args, setup_logger
 from visualization.data_export import DataExport
 
+import autograd.numpy as anp
+
 
 class NLPObjective:
     """Compute the objective values for tuning the hyperparameter of an NLP model"""
@@ -18,14 +20,29 @@ class NLPObjective:
         self.search_space = SearchSpace(
             [
                 Real([-5, 5], "x1"),  # real-valued hyperparameter
-                Discrete(["A", "B", "C"], "x2"),  # discrete hyperparameter
-                Integer([0, 10], "x3"),  # integer hyperparameter
+                Real([-5, 5], "x2"),  # real-valued hyperparameter
+                # Discrete(["A", "B", "C"], "x3"),  # discrete hyperparameter
+                Integer([0, 10], "x4"),  # integer hyperparameter
             ]
         )
+        
+        # self.search 
         # the number of hyperparameters
         self.n_var = self.search_space.dim
         # the number of objectives
         self.n_obj = 2
+        # the number of constraints
+        self.n_constr = 0
+        # lower bound
+        self.xl= np.array([-5] * self.n_var)
+        # upper bound 
+        self.xu= np.array([5] * self.n_var)
+            
+        
+        
+
+        
+        
 
     def sample(self, N: int) -> np.ndarray:
         """sample `N` point from the search space randomly"""
@@ -49,7 +66,7 @@ class NLPObjective:
             values.append(self._evaluate(par))
         return np.column_stack(list(zip(*values)))
 
-    def _evaluate(self, par: np.ndarray) -> Tuple[float, float]:
+    def _evaluate(self, par: np.ndarray, **kwargs) -> Tuple[float, float]:
         # TODO:
         # we should parameterize an NLP model using `par` and compute the target metrics
         # on some data set, e.g., for pytorch models
@@ -65,7 +82,19 @@ class NLPObjective:
         #       metric1.append(blue2.cpu().numpy())
         #       metric2.append(blue4.cpu().numpy())
         # return np.mean(metric1), np.mean(metric2) # or compute the median
+        
+        f1 = np.random.randn()
+        f2 = np.random.randn()
+        # out["F"] = anp.column_stack([f1, f2])
+
         return np.random.randn(), np.random.randn()  # mockup values to be replaced
+    
+    # def _evaluate(self, x, out, *args, requires_F=True, **kwargs):
+    #     if requires_F:
+    #         f1 = np.random.randn()
+    #         f2 = np.random.randn()
+
+    #         out["F"] = anp.column_stack([f1, f2])
 
 
 def experiment():
