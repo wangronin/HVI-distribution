@@ -40,9 +40,7 @@ class BoundedScaler(Scaler):
 
 
 class MockupScaler(Scaler):
-    """
-    Scale data to [0, 1] according to bounds
-    """
+    """Empty scaler that does nothing"""
 
     def transform(self, X):
         return X

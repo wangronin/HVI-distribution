@@ -1,8 +1,9 @@
 import numpy as np
 
 from .factory import init_from_config
+from .surrogate_model import RandomForest
 from .surrogate_problem import SurrogateProblem
-from .transformation import NonStandardTransform, StandardTransform
+from .transformation import NonStandardTransform
 from .utils import Timer, calc_hypervolume, find_pareto_front
 
 """
@@ -42,7 +43,11 @@ class MOBO:
         framework_args["solver"]["n_obj"] = self.n_obj  # for MOEA/D-EGO
         framework = init_from_config(self.config, framework_args)
 
-        self.surrogate_model = framework["surrogate"]  # surrogate model
+        # self.surrogate_model = framework["surrogate"]  # surrogate model
+        cs = problem.search_space
+        self.surrogate_model = RandomForest(
+            levels=cs.levels
+        )  # to use the random forest model from "bayes_optim"
         self.acquisition = framework["acquisition"]  # acquisition function
         self.solver = framework["solver"]  # multi-objective solver for finding the paretofront
         self.selection = framework[

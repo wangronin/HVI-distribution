@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# NOTE: it is better to install `pyenv` (https://github.com/pyenv/pyenv) first to get the right Python verison.
+pip install -U pip virtualenv && python3 -m venv venv && source venv/bin/activate
+pip install numpy scipy pandas matplotlib plotly scikit-learn smt
+pip install -r requirements.txt
