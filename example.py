@@ -82,19 +82,10 @@ class NLPObjective:
         #       metric1.append(blue2.cpu().numpy())
         #       metric2.append(blue4.cpu().numpy())
         # return np.mean(metric1), np.mean(metric2) # or compute the median
-        
-        f1 = np.random.randn()
-        f2 = np.random.randn()
-        # out["F"] = anp.column_stack([f1, f2])
+    
 
         return np.random.randn(), np.random.randn()  # mockup values to be replaced
     
-    # def _evaluate(self, x, out, *args, requires_F=True, **kwargs):
-    #     if requires_F:
-    #         f1 = np.random.randn()
-    #         f2 = np.random.randn()
-
-    #         out["F"] = anp.column_stack([f1, f2])
 
 
 def experiment():
