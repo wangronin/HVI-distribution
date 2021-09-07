@@ -61,7 +61,8 @@ def main():
 
                 if args.exp_name is not None:
                     command += f' --exp-name {args.exp_name}'
-
+                
+       
                 Process(target=worker, args=(command, problem, algo, seed, queue)).start()
                 print(f'problem {problem} algo {algo} seed {seed} started')
                 n_active_process += 1

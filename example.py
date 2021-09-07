@@ -11,8 +11,14 @@ from visualization.data_export import DataExport
 import autograd.numpy as anp
 
 
+import os
+from argparse import ArgumentParser
+from multiprocessing import Process, Queue, cpu_count
+
+
+
 class NLPObjective:
-    """Compute the objective values for tuning the hyperparameter of an NLP model"""
+    """Compute the objective values foframework_argsr tuning the hyperparameter of an NLP model"""
 
     def __init__(self, random_seed: int = 42):
         self.random_seed = random_seed  # TODO: seed to used for initializing NLP models
@@ -22,7 +28,7 @@ class NLPObjective:
                 Real([-5, 5], "x1"),  # real-valued hyperparameter
                 Real([-5, 5], "x2"),  # real-valued hyperparameter
                 # Discrete(["A", "B", "C"], "x3"),  # discrete hyperparameter
-                Integer([0, 10], "x4"),  # integer hyperparameter
+                # Integer([0, 10], "x4"),  # integer hyperparameter
             ]
         )
         
@@ -89,22 +95,47 @@ class NLPObjective:
 
 
 def experiment():
-    # load arguments
+    # # get the arguments from a command line 
+    # parser = ArgumentParser()
+    # parser.add_argument('--problem', type=str, nargs='+', required=True, help='problems to test')
+    # parser.add_argument('--algo', type=str, nargs='+', required=True, help='algorithms to test')
+    # parser.add_argument('--n-seed', type=int, default=10, help='number of different seeds')
+    # parser.add_argument('--n-process', type=int, default=cpu_count(), help='number of parallel optimization executions')
+    # parser.add_argument('--subfolder', type=str, default='default', help='subfolder of result')
+    # parser.add_argument('--exp-name', type=str, default=None, help='custom experiment name')
+    # parser.add_argument('--batch-size', type=int, default=20)
+    # parser.add_argument('--n-iter', type=int, default=20)
+    # parser.add_argument('--n-var', type=int, default=6)
+    # parser.add_argument('--n-obj', type=int, default=2)
+    # parser.add_argument('--ref-point', type=float, default=None)
+    # parser.add_argument('--seed', type=int, default=10)
+    # parser.add_argument('--log_to_file', type=bool, default=False)
+    # parser.add_argument('--n_init_sample', type=int, default=30)
+    # args = parser.parse_args()
+    
+    # load arguments by using argument.py 
     args, framework_args = get_args()
-
+    # _, framework_args = get_args()
+    
+  
     # set seed
     np.random.seed(args.seed)
     problem = NLPObjective(args.seed)
 
+    # args.algo = args.algo[0]
+    # args.problem = args.problem[0]
+
     # initialize optimizer
     optimizer = get_algorithm(args.algo)(problem, args.n_iter, args.ref_point, framework_args)
+
 
     # save arguments & setup logger
     save_args(args, framework_args)
     logger = setup_logger(args)
-
-    X_init = problem.sample(10)  # take a small set of initial guess
+    
+    X_init = problem.sample(args.n_init_sample)  # take a small set of initial guess
     Y_init = problem.evaluate(X_init)
+    print('Initilized %d samples and starting to opitmize' %args.n_init_sample)
 
     # initialize data exporter
     exporter = DataExport(optimizer, X_init, Y_init, args)
@@ -126,6 +157,15 @@ def experiment():
 
 
 if __name__ == "__main__":
-    # run this script with command
-    # python example --algo ucb hvi_ucb --batch-size 10 --n-iter 500 --seed 42"
+    # run this script with command    
+    # python example.py --algo hvi-ucb --n_init_sample 10 --problem NLP --n-iter 30 --seed 0 --batch-size 1
+    # n_init_sample:    int, the number of initilized samples
+    # n_iter:           int, max iteration 
+    # problem:          str, NLP
+    # seed:       
+    # algo:             
+    #     ubc:          navie ucb
+    #     hvi-ucb:      the proposed method
+    # batch-size:       int, the batch size in each   
+
     experiment()
