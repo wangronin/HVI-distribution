@@ -1,171 +1,21 @@
 from __future__ import annotations
 
-import sys
 import warnings
 from typing import Callable, List, Tuple, Union
 
 import numpy as np
 from joblib import Parallel, delayed
-from numba import cfunc, jit
-from numba.types import CPointer, float64, intc
-from scipy import LowLevelCallable
-from scipy.integrate import quad
-from scipy.special import binom, factorial
-from scipy.stats import norm, truncnorm
 
-np.seterr(divide="ignore", invalid="ignore")
+# from scipy.integrate import quad
+from scipy.special import binom, factorial
 
 from .hypervolume import hypervolume as hv
+from .special import D, cdf_product_of_truncated_gaussian, pdf_product_of_truncated_gaussian
 
+np.seterr(divide="ignore", invalid="ignore")
 warnings.simplefilter("error")
 
 __authors__ = ["Hao Wang", "Kaifeng Yang"]
-
-
-def jit_integrand(integrand_function):
-    jitted_function = jit(integrand_function, nopython=True, error_model="numpy")
-
-    @cfunc(float64(intc, CPointer(float64)))
-    def wrapped(_, xx):
-        return jitted_function(xx[0], xx[1], xx[2], xx[3], xx[4], xx[5])
-
-    return LowLevelCallable(wrapped.ctypes)
-
-
-def D(L, U, loc, scale):
-    out = norm.cdf(U, loc, scale) - norm.cdf(L, loc, scale)
-    if out == 0:
-        val = np.mean(
-            norm.pdf(np.linspace(L, U, 10), loc=loc, scale=scale)
-            / truncnorm.pdf(
-                np.linspace(L, U, 10), (L - loc) / scale, (U - loc) / scale, loc=loc, scale=scale
-            )
-        )
-        if not np.isnan(val):
-            out = val
-    return out
-
-
-@jit_integrand
-def integrand_eq4(*args):
-    x, mu0, mu1, sigma0, sigma1, p = args
-    out = np.exp(-0.5 * (((x - mu0) / sigma0) ** 2 + ((p / x - mu1) / sigma1) ** 2)) / x
-    return out
-
-
-def integrand_eq7(x, m, n, sigma, p):
-    return x ** (2 * m - n - 1) * np.exp(-0.5 * ((x / sigma[0]) ** 2 + (p / x / sigma[1]) ** 2))
-
-
-def pdf_product_of_truncated_gaussian(
-    p: float,
-    mean: List[float],
-    sigma: List[float],
-    lower: List[float],
-    upper: List[float],
-    normalizer: float,
-    taylor_expansion: bool = False,
-    taylor_order: int = 5,
-    fac: List[float] = None,
-    bc: List[List[float]] = None,
-) -> float:
-    (L1, L2), (U1, U2) = lower, upper
-    if L1 * U2 > U1 * L2:  # swap y_1' and y_2'
-        (L2, L1), (U2, U1) = lower, upper
-        mean = mean[1], mean[0]
-        sigma = sigma[1], sigma[0]
-
-    if L1 * L2 <= p < L1 * U2:
-        alpha = L1
-        beta = p / L2
-    elif L1 * U2 <= p < U1 * L2:
-        alpha = p / U2
-        beta = p / L2
-    elif U1 * L2 <= p <= U1 * U2:
-        alpha = p / U2
-        beta = U1
-    else:
-        return 0
-
-    if alpha == beta:
-        return 0
-
-    if not taylor_expansion:
-        with warnings.catch_warnings():
-            warnings.simplefilter("error")
-            try:
-                if alpha <= 0 <= beta:
-                    out = (
-                        quad(
-                            integrand_eq4,
-                            alpha,
-                            -1 * sys.float_info.min,
-                            args=(mean[0], mean[1], sigma[0], sigma[1], p),
-                        )[0]
-                        + quad(
-                            integrand_eq4,
-                            sys.float_info.min,
-                            beta,
-                            args=(mean[0], mean[1], sigma[0], sigma[1], p),
-                        )[0]
-                    )
-                else:
-                    out = quad(
-                        integrand_eq4,
-                        alpha,
-                        beta,
-                        args=(mean[0], mean[1], sigma[0], sigma[1], p),
-                    )[0]
-            except Warning:
-                out = 0
-    else:
-        eta = np.log(sigma[1]) - np.log(sigma[0] * p)
-        # range of the integration
-        L, U = 2 * np.log(alpha) + eta, 2 * np.log(beta) + eta
-
-        C1 = p / np.prod(sigma)
-        C2 = np.array([(2 * m - n) / 2 for n in range(taylor_order) for m in range(n + 1)])
-        C = np.exp(-0.5 * (mean[0] ** 2 / sigma[0] ** 2 + mean[1] ** 2 / sigma[1] ** 2))
-        mn = np.array([(m, n) for n in range(taylor_order) for m in range(n + 1)])
-        term1 = np.array(
-            [
-                (
-                    p ** (n - m)
-                    / fac[n]
-                    * bc[n][m]
-                    * (mean[0] / sigma[0] ** 2) ** m
-                    * (mean[1] / sigma[1] ** 2) ** (n - m)
-                )
-                for m, n in mn
-            ]
-        )
-        term2 = np.array([0.5 * (p * sigma[0] / sigma[1]) ** ((2 * m - n) / 2) for m, n in mn])
-        bs = (U - L) / 5
-        breaks = [(L + bs * i, L + bs * (i + 1)) for i in range(5)]
-        out = np.zeros(len(C2))
-        for l, u in breaks:
-            # expand the integrand at the mid point
-            x = (l + u) / 2
-            f = np.exp(-C1 * np.cosh(x) + C2 * x)  # the integrand
-            a = f * (C2 - C1 * np.sinh(x))  # first-order derivative
-            b = f * ((C2 - C1 * np.sinh(x)) ** 2 - C1 * np.cosh(x))  # second-order derivative
-            # c = (
-            #     f * (C1 * np.sinh(x) - 2 * C1 * np.cosh(x) * (C2 - C1 * np.cosh(x)))
-            #     + ((C2 - C1 * np.sinh(x)) ** 2 - C1 * np.cosh(x)) * a
-            # )  # third-order derivative
-
-            # second-order Taylor approximation of the integral
-            out += (
-                (u - l) * f
-                + ((u - x) ** 2 - (l - x) ** 2) * a / 2
-                + ((u - x) ** 3 - (l - x) ** 3) * b / 6
-                # + ((u - x) ** 4 - (l - x) ** 4) * c / 24
-            )
-        out = C * (term1 * term2 * out).sum()
-
-    if out == 0 and normalizer == 0:
-        return 0
-    return out / normalizer
 
 
 class HypervolumeImprovement:
@@ -233,21 +83,16 @@ class HypervolumeImprovement:
                     pareto_front[i, 1] - pareto_front[self.N - j, 1],
                 ]
                 mu_prime = self.mu_prime(i, j)
-                self.normalizer[i, j] = (
-                    2
-                    * np.pi
-                    * np.prod(self.sigma)
-                    * np.prod(
-                        [
-                            D(
-                                self.transformed_lb[i, j, k],
-                                self.transformed_ub[i, j, k],
-                                mu_prime[k],
-                                self.sigma[k],
-                            )
-                            for k in range(self.dim)
-                        ]
-                    )
+                self.normalizer[i, j] = np.prod(
+                    [
+                        D(
+                            self.transformed_lb[i, j, k],
+                            self.transformed_ub[i, j, k],
+                            mu_prime[k],
+                            self.sigma[k],
+                        )
+                        for k in range(self.dim)
+                    ]
                 )
 
     def mu_prime(self, i: int, j: int) -> List[float]:
@@ -406,8 +251,6 @@ class HypervolumeImprovement:
         v: np.ndarray,
         i: int,
         j: int,
-        taylor_expansion: bool = False,
-        taylor_order: int = 25,
     ) -> np.ndarray:
         """Conditional CDF of hypervolume when restricting the objective point in the cell (i, j)
 
@@ -419,10 +262,6 @@ class HypervolumeImprovement:
             cell's row index
         j : int
             cell's column index
-        taylor_expansion : bool, optional
-            whether using Taylor expansion to computate the conditional density, by default False
-        taylor_order : int, optional
-            the order of the Taylor expansion, by default 25
 
         Returns
         -------
@@ -436,54 +275,25 @@ class HypervolumeImprovement:
             self.transformed_lb[i, j],
             self.transformed_ub[i, j],
             self.normalizer[i, j],
-            taylor_expansion,
-            taylor_order,
-            self.fac,
-            self.bc,
         )
-        idx = v.argsort()
-        out = np.zeros(len(v))
-        v = np.clip(v[idx] - self.gamma(i, j), L, U)
-        bounds = [(L if k == 0 else v[k - 1], vv) for k, vv in enumerate(v)]
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            func = lambda l, u: quad(
-                pdf_product_of_truncated_gaussian, l, u, args=args, limit=100
-            )[0]
-            out[idx] = np.cumsum([func(*b) for b in bounds])
+        a = np.clip(v - self.gamma(i, j), L, U)
+        out = np.array([cdf_product_of_truncated_gaussian(v, *args) for v in a])
         return out
 
-    def cdf(
-        self,
-        v: Union[float, List[float], np.ndarray],
-        taylor_expansion: bool = False,
-        taylor_order: int = 6,
-    ) -> np.ndarray:
-        """CDF of the hypervolume
+    def cdf(self, v: Union[float, List[float], np.ndarray]) -> np.ndarray:
+        """Exact CDF of the hypervolume
 
         Parameters
         ----------
         v : Union[float, List[float], np.ndarray]
             the hypervolume values
-        taylor_expansion : bool, optional
-            whether using Taylor expansion to computate the conditional density, by default False
-        taylor_order : int, optional
-            the order of the Taylor expansion, by default 25
 
         Returns
         -------
         np.ndarray
             the cumulative probability at volume `v`
         """
-        v = self._check_input(v, taylor_expansion, taylor_order)
-        if taylor_expansion:
-            self.fac = [factorial(i) for i in range(taylor_order)]
-            self.bc = [[binom(i, j) for j in range(i + 1)] for i in range(taylor_order)]
-        else:
-            self.fac, self.bc = None, None
-        res, prob = self.__internal_loop_over_cells(
-            v, self.cdf_conditional, taylor_expansion=taylor_expansion, taylor_order=taylor_order
-        )
+        res, prob = self.__internal_loop_over_cells(v, self.cdf_conditional)
         res[res == np.inf] = 0
         if np.isnan(prob):
             prob = 0
