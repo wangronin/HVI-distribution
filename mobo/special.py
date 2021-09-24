@@ -103,7 +103,7 @@ def cdf_product_of_truncated_gaussian(
 
     l, u = max(L1, p / U2), min(U1, p / L2)
     term1 = max(D2(L1, p / U2, mean[0], sigma[0]), 0) * D2(L2, U2, mean[1], sigma[1])
-    term2 = D2(l, u, mean[0], sigma[0]) * 0.5 * (1 + erf((L2 - mean[1]) / sigma[1] / np.sqrt(2)))
+    term2 = D2(l, u, mean[0], sigma[0]) * pnorm(L2, mean[1], sigma[1])
     term3 = quad(integrand_cdf, l, u, args=(p, mean[0], mean[1], sigma[0], sigma[1]))[0]
     return (term1 - term2 + term3) / normalizer
 
