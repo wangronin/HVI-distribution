@@ -36,16 +36,14 @@ class GaussianProcess(SurrogateModel):
             if nu > 0:
                 main_kernel = Matern(
                     length_scale=np.ones(n_var),
-                    length_scale_bounds=(np.sqrt(1e-10), np.sqrt(1e4)),
+                    length_scale_bounds=(1e-10, 1e5),
                     nu=0.5 * nu,
                 )
             else:
-                main_kernel = RBF(
-                    length_scale=np.ones(n_var), length_scale_bounds=(np.sqrt(1e-10), np.sqrt(1e4))
-                )
+                main_kernel = RBF(length_scale=np.ones(n_var), length_scale_bounds=(1e-10, 1e5))
 
             kernel = ConstantKernel(
-                constant_value=1.0, constant_value_bounds=(np.sqrt(1e-10), np.sqrt(1e4))
+                constant_value=1.0, constant_value_bounds=(1e-8, 1e5)
             ) * main_kernel + ConstantKernel(
                 constant_value=1e-2, constant_value_bounds=(np.exp(-6), np.exp(0))
             )

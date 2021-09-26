@@ -1,7 +1,6 @@
 import numpy as np
 
 from .factory import init_from_config
-from .surrogate_model import RandomForest
 from .surrogate_problem import SurrogateProblem
 from .transformation import NonStandardTransform
 from .utils import Timer, calc_hypervolume, find_pareto_front
@@ -48,8 +47,7 @@ class MOBO:
         # self.surrogate_model = RandomForest(
         #     levels=cs.levels
         # )  # to use the random forest model from "bayes_optim"
-        
-        
+
         self.acquisition = framework["acquisition"]  # acquisition function
         self.solver = framework["solver"]  # multi-objective solver for finding the paretofront
         self.selection = framework[
