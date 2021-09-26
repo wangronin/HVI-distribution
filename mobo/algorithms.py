@@ -98,8 +98,8 @@ class UCB(MOBO):
     config = {
         'surrogate': 'gp',
         'acquisition': 'ucb',
-        'solver': 'nsga2',
-        'selection': 'uncertainty',
+        'solver': 'ga',
+        'selection': 'hvi',
     }
 
 

@@ -1,5 +1,5 @@
 from problems.problem import Problem
-from problems.zdt import ZDT1, ZDT2, ZDT3
+from problems.zdt import ZDT1, ZDT2, ZDT3, ZDT4, ZDT6
 from problems.dtlz import DTLZ1, DTLZ2, DTLZ3, DTLZ4, DTLZ5, DTLZ6
 from problems.oka import OKA1, OKA2
 from problems.vlmop import VLMOP2, VLMOP3

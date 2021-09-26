@@ -14,7 +14,7 @@ def get_general_args(args=None):
     '''
     parser = ArgumentParser()
 
-    parser.add_argument('--problem', type=str, default='dtlz1', 
+    parser.add_argument('--problem', type=str, default='zdt6', 
         help='optimization problem')
     parser.add_argument('--n-var', type=int, default=5, 
         help='number of design variables')
@@ -22,11 +22,11 @@ def get_general_args(args=None):
         help='number of objectives')
     parser.add_argument('--n-init-sample', type=int, default=30, 
         help='number of initial design samples')
-    parser.add_argument('--n-iter', type=int, default=30, 
+    parser.add_argument('--n-iter', type=int, default=170,
         help='number of optimization iterations')
-    parser.add_argument('--ref-point', type=float, nargs='+', default=None, 
+    parser.add_argument('--ref-point', type=float, nargs='+', default=[15, 15], 
         help='reference point for calculating hypervolume')
-    parser.add_argument('--batch-size', type=int, default=10, 
+    parser.add_argument('--batch-size', type=int, default=1, 
         help='size of the selected batch in one iteration')
 
     parser.add_argument('--seed', type=int, default=0, 
@@ -34,8 +34,8 @@ def get_general_args(args=None):
     parser.add_argument('--n-seed', type=int, default=1,
         help='number of random seeds / test runs')
 
-    parser.add_argument('--algo', type=str, default='hvi-ucb',
-    # parser.add_argument('--algo', type=str, default='ucb',
+    # parser.add_argument('--algo', type=str, default='hvi-ucb',
+    parser.add_argument('--algo', type=str, default='ucb',
     # parser.add_argument('--algo', type=str, default='usemo-ei',
         help='type of algorithm to use with some predefined arguments, or custom arguments')
 
@@ -97,16 +97,16 @@ def get_solver_args(args=None):
     parser.add_argument('--solver', type=str, 
         choices=['nsga2', 'moead', 'discovery'], default='nsga2', 
         help='type of the multiobjective solver')
-    parser.add_argument('--pop-size', type=int, default=4, 
+    parser.add_argument('--pop-size', type=int, default=7,
         help='population size')
-    parser.add_argument('--n-gen', type=int, default=3, 
+    parser.add_argument('--n-gen', type=int, default=50,
         help='number of generations')
     parser.add_argument('--pop-init-method', type=str, 
         choices=['nds', 'random', 'lhs'], default='nds', 
         help='method to init population')
     parser.add_argument('--n-process', type=int, default=cpu_count(),
         help='number of processes to be used for parallelization')
-    parser.add_argument('--batch-size', type=int, default=2, 
+    parser.add_argument('--batch-size', type=int, default=1, 
         help='size of the selected batch in one iteration')
 
     # ParetoDiscovery solver
@@ -139,9 +139,9 @@ def get_selection_args(args=None):
     '''
     parser = ArgumentParser()
 
-    parser.add_argument('--selection', type=str, default='HVI_UBC_Uncertainty', 
-    # parser.add_argument('--selection', type=str, default='hvi', 
-        help='type of selection method for new batch')
+    # parser.add_argument('--selection', type=str, default='HVI_UBC_Uncertainty', 
+    # # parser.add_argument('--selection', type=str, default='hvi', 
+        # help='type of selection method for new batch')
     parser.add_argument('--batch-size', type=int, default=1, 
         help='size of the selected batch in one iteration')
 

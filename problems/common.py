@@ -9,6 +9,8 @@ def get_problem_options():
         ('zdt1', ZDT1),
         ('zdt2', ZDT2),
         ('zdt3', ZDT3),
+        ('zdt4', ZDT4),
+        ('zdt6', ZDT6),
         ('dtlz1', DTLZ1),
         ('dtlz2', DTLZ2),
         ('dtlz3', DTLZ3),

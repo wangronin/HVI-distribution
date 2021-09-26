@@ -6,6 +6,9 @@ from scipy.stats import norm
 
 from .hv_improvement import HypervolumeImprovement
 from .utils import expand, find_pareto_front, safe_divide
+import matplotlib.pyplot as plt
+from pynverse import inversefunc
+from pymoo.factory import get_performance_indicator
 
 """
 Acquisition functions that define the objectives for surrogate multi-objective problem
@@ -203,13 +206,25 @@ class UCB(Acquisition):
 
     def fit(self, X, Y):
         self.n_sample = X.shape[0]
+        self.pf = find_pareto_front(Y, return_index=False)
+        self.rf = np.max(Y, axis=0) + 1
 
     def evaluate(self, val, calc_gradient=False, calc_hessian=False):
         lamda = np.sqrt(np.log(self.n_sample) / self.n_sample)
 
         y_mean, y_std = val["F"], val["S"]
-        F = y_mean - lamda * y_std
+        F = y_mean - 2 * y_std
 
+        
+        hv = get_performance_indicator('hv', ref_point=self.rf)
+        hv_current = hv.calc(self.pf)
+        
+        
+        FF = np.array([float(0)] * len(F))
+        for i in range(0,len(F)):
+            FF[i] = hv_current - hv.calc(np.vstack([self.pf, F[i]]))
+        
+        
         dF, hF = None, None
         dy_mean, hy_mean, dy_std, hy_std = val["dF"], val["hF"], val["dS"], val["hS"]
 
@@ -237,7 +252,7 @@ class UCB(Acquisition):
                 + hF_y_std * dy_std * dy_std_T
             )
 
-        return F, dF, hF
+        return FF, dF, hF
 
 
 class HVI_UCB(Acquisition):
@@ -257,26 +272,36 @@ class HVI_UCB(Acquisition):
         self.n_sample = X.shape[0]
         self.pf = find_pareto_front(Y, return_index=False)
         self.rf = np.max(Y, axis=0) + 1
+        # self.rf = [15, 15]
 
     def evaluate(self, val, calc_gradient=False, calc_hessian=False):
         dF, hF = None, None
         pf = self.pf
         mu, sigma = val["F"], val["S"]
-        r = self.rf
+        rf = self.rf
         N = len(sigma)
         F = np.array([float(0)] * N)
         dF = np.array([float(0)] * N)
-
+        lamda = 1 - 0.3 - np.sqrt(np.log(self.n_sample) / self.n_sample)
         for i in range(N):
-            hvi = HypervolumeImprovement(pf, r, mu[i, :], sigma[i, :])
-            func = lambda x: (0.95 - hvi.cdf(x))
-            sol = minimize(func, 1, method="CG", options={"maxiter": 30})
-
-            if abs(sol.fun) > 0.2:
-                F[i] = np.inf   # y
-                dF[i] = np.inf  # a
-            else:
-                F[i] = sol.fun
-                dF[i] = sol.x
-
+            hvi = HypervolumeImprovement(pf, rf, mu[i, :], sigma[i, :])
+            
+            
+            
+            
+            # func = lambda x: (-hvi.cdf(x))
+            # sol = minimize(func, 1e-10, method="CG", options={"maxiter": 50})
+            # F[i] = sol.fun
+            # dF[i] = sol.x
+            
+            
+            # ----------------method1 
+            
+            hvi = HypervolumeImprovement(pf, rf, mu[i, :], sigma[i, :])
+            func = lambda x: abs(lamda - hvi.cdf(x))
+            # print(belta)
+            sol = minimize(func, 1e-10, method="CG", options={"maxiter": 50})
+            F[i] = sol.fun
+            dF[i] = sol.x
+        # plt.show()
         return F, dF, hF

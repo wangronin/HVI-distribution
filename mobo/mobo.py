@@ -114,7 +114,7 @@ class MOBO:
                 self.transformation,
             )
 
-            if type(self.acquisition).__name__ == "HVI_UBC":
+            if type(self.acquisition).__name__ == "HVI_UBC" or type(self.optimizer.acquisition).__name__ == 'UCB':
                 surr_problem.n_obj = 1
 
             solution = self.solver.solve(surr_problem, X, Y)

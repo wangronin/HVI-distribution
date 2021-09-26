@@ -111,7 +111,7 @@ class StandardTransform(Transformation):
 
 class NonStandardTransform(Transformation):
     def __init__(self):
-        super().__init__(MockupScaler(), StandardScaler())
+        super().__init__(MockupScaler(), MockupScaler())
 
 
 class SearchSpaceTransform(Transformation):

@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Sep 20 13:34:24 2021
+
+@author: kaifengyang
+"""
+
 from __future__ import annotations
 
 import warnings
@@ -13,7 +21,7 @@ from .hypervolume import hypervolume as hv
 from .special import D, cdf_product_of_truncated_gaussian, pdf_product_of_truncated_gaussian
 
 np.seterr(divide="ignore", invalid="ignore")
-warnings.simplefilter("error")
+warnings.simplefilter("ignore")
 
 __authors__ = ["Hao Wang", "Kaifeng Yang"]
 
@@ -107,14 +115,12 @@ class HypervolumeImprovement:
     def prob_in_cell(self, i: int, j: int) -> float:
         """The probability of a Gaussian random point falling in a cell, in which independent
         marginals are assumed.
-
         Parameters
         ----------
         i : int
             the cell's row index
         j : int
             the cell's column index
-
         Returns
         -------
         float
@@ -146,6 +152,34 @@ class HypervolumeImprovement:
         else:
             self.fac, self.bc = None, None
         return v
+    
+    def get_integral_box_index(self,): 
+        n_sigma = 3
+        points_y1 = np.append(self.cells_lb[:,0,0], self.cells_ub[:,0,0][-1])
+        points_y2 = np.append(self.cells_lb[0,:,1], self.cells_ub[0,:,1][-1])
+
+        n_y1 = len(points_y1) - 1
+        n_y2 = len(points_y2) - 1
+        i_start = [(i) for i in range(n_y1) if points_y1[i] <= self.mu[0] - n_sigma*self.sigma[0] < points_y1[i+1]]
+        i_end = [(i+1) for i in range(n_y1) if points_y1[i] <= self.mu[0] + n_sigma*self.sigma[0] < points_y1[i+1]]
+        j_start = [(i) for i in range(n_y2) if points_y2[i] <= self.mu[1] - n_sigma*self.sigma[1] < points_y2[i+1]]
+        j_end = [(i+1) for i in range(n_y2) if points_y2[i] <= self.mu[1] + n_sigma*self.sigma[1] < points_y2[i+1]]
+
+
+        if i_start == []:
+            i_start == [0]
+        if j_start == []:
+            j_start == [0]
+
+        if i_end == [] or self.mu[0] + n_sigma*self.sigma[0] > points_y1[-1]:
+            i_end = [n_y1-1]
+        if j_end == [] or  self.mu[1] + n_sigma*self.sigma[1] > points_y2[-1]:
+            j_end = [n_y2-1]
+
+        ij = [(i, j) for i in range(i_start[0],i_end[0]+1) for j in range(j_start[0], j_end[0]+1) if i+j< self.N]
+
+        return ij
+
 
     def __internal_loop_over_cells(
         self,
@@ -160,7 +194,9 @@ class HypervolumeImprovement:
         v = np.array(v)
         # loop over all the cells
         terms = np.zeros((self.N, self.N, len(v)))
-        ij = [(i, j) for i in range(self.N) for j in range(self.N - i)]
+        # ij = [(i, j) for i in range(self.N) for j in range(self.N - i)]
+        ij = self.get_integral_box_index()
+        
         prob = 0  # probability in the dominating region w.r.t. the attainment boundary
         res = (
             Parallel(n_jobs=n_jobs)(delayed(func)(v, i, j, **kwargs) for i, j in ij)
@@ -177,7 +213,6 @@ class HypervolumeImprovement:
         self, v: np.ndarray, i: int, j: int, taylor_expansion: bool = False, taylor_order: int = 25
     ) -> np.ndarray:
         """Conditional PDF of hypervolume when restricting the objective point in the cell (i, j)
-
         Parameters
         ----------
         v : np.ndarray
@@ -190,7 +225,6 @@ class HypervolumeImprovement:
             whether using Taylor expansion to computate the conditional density, by default False
         taylor_order : int, optional
             the order of the Taylor expansion, by default 25
-
         Returns
         -------
         np.ndarray
@@ -216,7 +250,6 @@ class HypervolumeImprovement:
         taylor_order: int = 6,
     ) -> np.ndarray:
         """PDF of the hypervolume
-
         Parameters
         ----------
         v : Union[float, List[float], np.ndarray]
@@ -225,7 +258,6 @@ class HypervolumeImprovement:
             whether using Taylor expansion to computate the conditional density, by default False
         taylor_order : int, optional
             the order of the Taylor expansion, by default 25
-
         Returns
         -------
         np.ndarray
@@ -253,7 +285,6 @@ class HypervolumeImprovement:
         j: int,
     ) -> np.ndarray:
         """Conditional CDF of hypervolume when restricting the objective point in the cell (i, j)
-
         Parameters
         ----------
         v : np.ndarray
@@ -262,7 +293,6 @@ class HypervolumeImprovement:
             cell's row index
         j : int
             cell's column index
-
         Returns
         -------
         np.ndarray
@@ -282,12 +312,10 @@ class HypervolumeImprovement:
 
     def cdf(self, v: Union[float, List[float], np.ndarray]) -> np.ndarray:
         """Exact CDF of the hypervolume
-
         Parameters
         ----------
         v : Union[float, List[float], np.ndarray]
             the hypervolume values
-
         Returns
         -------
         np.ndarray
@@ -298,6 +326,7 @@ class HypervolumeImprovement:
         if np.isnan(prob):
             prob = 0
         return res + (1 - prob)
+        # return res
 
     def cdf_monte_carlo(
         self,
@@ -307,7 +336,6 @@ class HypervolumeImprovement:
         n_boostrap: bool = 1e2,
     ) -> np.ndarray:
         """Monte-Carlo approximation to the CDF of hypervolume
-
         Parameters
         ----------
         v : Union[float, List[float], np.ndarray]
@@ -319,7 +347,6 @@ class HypervolumeImprovement:
             by default False
         n_boostrap: bool, optional
             the boostrap size, by default 1e2
-
         Returns
         -------
         np.ndarray

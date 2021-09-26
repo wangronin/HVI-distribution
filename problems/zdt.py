@@ -23,6 +23,7 @@ class ZDT1(ZDT):
             f2 = g * (1 - anp.power((f1 / g), 0.5))
 
             out["F"] = anp.column_stack([f1, f2])
+            
 
 
 class ZDT2(ZDT):
@@ -72,4 +73,42 @@ class ZDT3(ZDT):
             f2 = g * (1 - anp.power(f1 * 1.0 / g, 0.5) - (f1 * 1.0 / g) * anp.sin(10 * anp.pi * f1))
 
             out["F"] = anp.column_stack([f1, f2])
+
+class ZDT4(ZDT):
+    def __init__(self, n_var=10):
+        super().__init__(n_var)
+        self.xl = -5 * anp.ones(self.n_var)
+        self.xl[0] = 0.0
+        self.xu = 5 * anp.ones(self.n_var)
+        self.xu[0] = 1.0
+        self.func = self._evaluate
+
+    def _calc_pareto_front(self, n_pareto_points=100):
+        x = anp.linspace(0, 1, n_pareto_points)
+        return anp.array([x, 1 - anp.sqrt(x)]).T
+
+    def _evaluate(self, x, out, *args, **kwargs):
+        f1 = x[:, 0]
+        g = 1.0
+        g += 10 * (self.n_var - 1)
+        for i in range(1, self.n_var):
+            g += x[:, i] * x[:, i] - 10.0 * anp.cos(4.0 * anp.pi * x[:, i])
+        h = 1.0 - anp.sqrt(f1 / g)
+        f2 = g * h
+
+        out["F"] = anp.column_stack([f1, f2])
+
+
+class ZDT6(ZDT):
+
+    def _calc_pareto_front(self, n_pareto_points=100):
+        x = anp.linspace(0.2807753191, 1, n_pareto_points)
+        return anp.array([x, 1 - anp.power(x, 2)]).T
+
+    def _evaluate(self, x, out, *args, **kwargs):
+        f1 = 1 - anp.exp(-4 * x[:, 0]) * anp.power(anp.sin(6 * anp.pi * x[:, 0]), 6)
+        g = 1 + 9.0 * anp.power(anp.sum(x[:, 1:], axis=1) / (self.n_var - 1.0), 0.25)
+        f2 = g * (1 - anp.power(f1 / g, 2))
+
+        out["F"] = anp.column_stack([f1, f2])
 
