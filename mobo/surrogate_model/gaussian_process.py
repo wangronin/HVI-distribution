@@ -74,7 +74,8 @@ class GaussianProcess(SurrogateModel):
             F.append(y_mean)  # y_mean: shape (N,)
 
             if std:
-                if not hasattr(gp, "_K_inv"):
+                # if not hasattr(gp, "_K_inv"):
+                if gp._K_inv is None:
                     L_inv = solve_triangular(gp.L_.T, np.eye(gp.L_.shape[0]))
                     gp._K_inv = L_inv.dot(L_inv.T)
 

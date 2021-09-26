@@ -114,7 +114,7 @@ class MOBO:
                 self.transformation,
             )
 
-            if type(self.acquisition).__name__ == "HVI_UBC" or type(self.optimizer.acquisition).__name__ == 'UCB':
+            if type(self.acquisition).__name__ == "HVI_UCB" or type(self.acquisition).__name__ == "UCB":
                 surr_problem.n_obj = 1
 
             solution = self.solver.solve(surr_problem, X, Y)
@@ -127,7 +127,8 @@ class MOBO:
                 solution, self.surrogate_model, self.status, self.transformation
             )
             # taking the precision into account
-            X_next = self.search_space.round(self.transformation.undo(X_next))
+            # .search_space is not avaiable 
+            # X_next = self.search_space.round(self.transformation.undo(X_next))
             timer.log("Next sample batch selected")
 
             # update dataset

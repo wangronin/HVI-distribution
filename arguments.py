@@ -34,8 +34,8 @@ def get_general_args(args=None):
     parser.add_argument('--n-seed', type=int, default=1,
         help='number of random seeds / test runs')
 
-    # parser.add_argument('--algo', type=str, default='hvi-ucb',
-    parser.add_argument('--algo', type=str, default='ucb',
+    parser.add_argument('--algo', type=str, default='hvi-ucb',
+    # parser.add_argument('--algo', type=str, default='ucb',
     # parser.add_argument('--algo', type=str, default='usemo-ei',
         help='type of algorithm to use with some predefined arguments, or custom arguments')
 
@@ -99,7 +99,7 @@ def get_solver_args(args=None):
         help='type of the multiobjective solver')
     parser.add_argument('--pop-size', type=int, default=7,
         help='population size')
-    parser.add_argument('--n-gen', type=int, default=50,
+    parser.add_argument('--n-gen', type=int, default=2,
         help='number of generations')
     parser.add_argument('--pop-init-method', type=str, 
         choices=['nds', 'random', 'lhs'], default='nds', 
