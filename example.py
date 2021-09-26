@@ -5,7 +5,7 @@ from typing import Tuple
 
 import autograd.numpy as anp
 import numpy as np
-from bayes_optim.search_space import Discrete, Integer, Real, SearchSpace
+from bayes_optim.search_space import Real, SearchSpace
 
 from arguments import get_args
 from mobo.algorithms import get_algorithm
@@ -21,20 +21,17 @@ class NLPObjective:
         # TODO: the search space
         self.search_space = SearchSpace(
             [
-                Real([-5, 5], "x1"),  # real-valued hyperparameter
-                Real([-5, 5], "x2"),  # real-valued hyperparameter
-                # Discrete(["A", "B", "C"], "x3"),  # discrete hyperparameter
-                # Integer([0, 10], "x4"),  # integer hyperparameter
+                Real([1e-10, 1], "lr", scale="log10", precision=7),
+                Real([1e-10, 1], "weight_decay", scale="log10", precision=4),
             ]
         )
-
-        # self.search
         # the number of hyperparameters
         self.n_var = self.search_space.dim
         # the number of objectives
         self.n_obj = 2
         # the number of constraints
         self.n_constr = 0
+        self.xl, self.xu = list(zip(*self.search_space.bounds))
 
     def sample(self, N: int) -> np.ndarray:
         """sample `N` point from the search space randomly"""
@@ -74,8 +71,10 @@ class NLPObjective:
         #       metric1.append(blue2.cpu().numpy())
         #       metric2.append(blue4.cpu().numpy())
         # return np.mean(metric1), np.mean(metric2) # or compute the median
-
-        return np.random.randn(), np.random.randn()  # mockup values to be replaced
+        return (
+            np.sum(par ** 2),
+            np.sum(np.abs(par)),
+        )  # mockup values to be replaced
 
 
 def experiment():
@@ -105,11 +104,10 @@ def experiment():
     np.random.seed(args.seed)
     problem = NLPObjective(args.seed)
 
-    # args.algo = args.algo[0]
-    # args.problem = args.problem[0]
-
     # initialize optimizer
-    optimizer = get_algorithm(args.algo)(problem, args.n_iter, args.ref_point, framework_args)
+    optimizer = get_algorithm(args.algo)(
+        problem, args.n_iter, args.ref_point, framework_args
+    )
 
     # save arguments & setup logger
     save_args(args, framework_args)

@@ -50,7 +50,9 @@ def pnorm(x: float, loc: float, scale: float) -> float:
 
 @jit(nopython=True, error_model="numpy")
 def D2(L: float, U: float, loc: float, scale: float) -> float:
-    return 0.5 * (erf((U - loc) / scale / np.sqrt(2)) - erf((L - loc) / scale / np.sqrt(2)))
+    return 0.5 * (
+        erf((U - loc) / scale / np.sqrt(2)) - erf((L - loc) / scale / np.sqrt(2))
+    )
 
 
 def D(L, U, loc, scale):
@@ -59,7 +61,11 @@ def D(L, U, loc, scale):
         val = np.mean(
             norm.pdf(np.linspace(L, U, 10), loc=loc, scale=scale)
             / truncnorm.pdf(
-                np.linspace(L, U, 10), (L - loc) / scale, (U - loc) / scale, loc=loc, scale=scale
+                np.linspace(L, U, 10),
+                (L - loc) / scale,
+                (U - loc) / scale,
+                loc=loc,
+                scale=scale,
             )
         )
         if not np.isnan(val):
@@ -75,7 +81,9 @@ def integrand_eq4(args):
 
 
 def integrand_eq7(x, m, n, sigma, p):
-    return x ** (2 * m - n - 1) * np.exp(-0.5 * ((x / sigma[0]) ** 2 + (p / x / sigma[1]) ** 2))
+    return x ** (2 * m - n - 1) * np.exp(
+        -0.5 * ((x / sigma[0]) ** 2 + (p / x / sigma[1]) ** 2)
+    )
 
 
 @jit_integrand
@@ -104,7 +112,14 @@ def cdf_product_of_truncated_gaussian(
     l, u = max(L1, p / U2), min(U1, p / L2)
     term1 = max(D2(L1, p / U2, mean[0], sigma[0]), 0) * D2(L2, U2, mean[1], sigma[1])
     term2 = D2(l, u, mean[0], sigma[0]) * pnorm(L2, mean[1], sigma[1])
-    term3 = quad(integrand_cdf, l, u, args=(p, mean[0], mean[1], sigma[0], sigma[1]))[0]
+    term3 = quad(
+        integrand_cdf,
+        l,
+        u,
+        args=(p, mean[0], mean[1], sigma[0], sigma[1]),
+        epsabs=1e-5,
+        epsrel=1e-5,
+    )[0]
     return (term1 - term2 + term3) / normalizer
 
 
@@ -179,7 +194,9 @@ def pdf_product_of_truncated_gaussian(
         L, U = 2 * np.log(alpha) + eta, 2 * np.log(beta) + eta
 
         C1 = p / np.prod(sigma)
-        C2 = np.array([(2 * m - n) / 2 for n in range(taylor_order) for m in range(n + 1)])
+        C2 = np.array(
+            [(2 * m - n) / 2 for n in range(taylor_order) for m in range(n + 1)]
+        )
         C = np.exp(-0.5 * (mean[0] ** 2 / sigma[0] ** 2 + mean[1] ** 2 / sigma[1] ** 2))
         mn = np.array([(m, n) for n in range(taylor_order) for m in range(n + 1)])
         term1 = np.array(
@@ -194,7 +211,9 @@ def pdf_product_of_truncated_gaussian(
                 for m, n in mn
             ]
         )
-        term2 = np.array([0.5 * (p * sigma[0] / sigma[1]) ** ((2 * m - n) / 2) for m, n in mn])
+        term2 = np.array(
+            [0.5 * (p * sigma[0] / sigma[1]) ** ((2 * m - n) / 2) for m, n in mn]
+        )
         bs = (U - L) / 5
         breaks = [(L + bs * i, L + bs * (i + 1)) for i in range(5)]
         out = np.zeros(len(C2))
@@ -203,7 +222,9 @@ def pdf_product_of_truncated_gaussian(
             x = (l + u) / 2
             f = np.exp(-C1 * np.cosh(x) + C2 * x)  # the integrand
             a = f * (C2 - C1 * np.sinh(x))  # first-order derivative
-            b = f * ((C2 - C1 * np.sinh(x)) ** 2 - C1 * np.cosh(x))  # second-order derivative
+            b = f * (
+                (C2 - C1 * np.sinh(x)) ** 2 - C1 * np.cosh(x)
+            )  # second-order derivative
             # c = (
             #     f * (C1 * np.sinh(x) - 2 * C1 * np.cosh(x) * (C2 - C1 * np.cosh(x)))
             #     + ((C2 - C1 * np.sinh(x)) ** 2 - C1 * np.cosh(x)) * a

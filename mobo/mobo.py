@@ -2,7 +2,7 @@ import numpy as np
 
 from .factory import init_from_config
 from .surrogate_problem import SurrogateProblem
-from .transformation import NonStandardTransform
+from .transformation import SearchSpaceTransform, NonStandardTransform
 from .utils import Timer, calc_hypervolume, find_pareto_front
 
 """
@@ -30,11 +30,11 @@ class MOBO:
         self.n_iter = n_iter
         self.ref_point = ref_point
 
-        # bounds = np.array([problem.xl, problem.xu])
-        # self.transformation = StandardTransform(
-        # bounds
-        # )  # data normalization for surrogate model fitting
-        self.transformation = NonStandardTransform()
+        if hasattr(problem, "search_space"):
+            self.search_space = problem.search_space
+            self.transformation = SearchSpaceTransform(self.search_space)
+        else:
+            self.transformation = NonStandardTransform()
 
         # framework components
         framework_args["surrogate"]["n_var"] = self.n_var  # for surrogate fitting
@@ -43,13 +43,10 @@ class MOBO:
         framework = init_from_config(self.config, framework_args)
 
         self.surrogate_model = framework["surrogate"]  # surrogate model
-        # cs = problem.search_space
-        # self.surrogate_model = RandomForest(
-        #     levels=cs.levels
-        # )  # to use the random forest model from "bayes_optim"
-
         self.acquisition = framework["acquisition"]  # acquisition function
-        self.solver = framework["solver"]  # multi-objective solver for finding the paretofront
+        self.solver = framework[
+            "solver"
+        ]  # multi-objective solver for finding the paretofront
         self.selection = framework[
             "selection"
         ]  # selection method for choosing new (batch of) samples to evaluate on real problem
@@ -111,13 +108,17 @@ class MOBO:
 
             # solve surrogate problem
             surr_problem = SurrogateProblem(
-                self.real_problem, self.surrogate_model, self.acquisition, self.transformation
+                self.real_problem,
+                self.surrogate_model,
+                self.acquisition,
+                self.transformation,
             )
 
             if type(self.acquisition).__name__ == "HVI_UBC":
                 surr_problem.n_obj = 1
 
             solution = self.solver.solve(surr_problem, X, Y)
+
             timer.log("Surrogate problem solved")
 
             # batch point selection
@@ -125,6 +126,8 @@ class MOBO:
             X_next, self.info = self.selection.select(
                 solution, self.surrogate_model, self.status, self.transformation
             )
+            # taking the precision into account
+            X_next = self.search_space.round(self.transformation.undo(X_next))
             timer.log("Next sample batch selected")
 
             # update dataset
@@ -134,7 +137,9 @@ class MOBO:
 
             # statistics
             global_timer.log("Total runtime", reset=False)
-            print(f"Total evaluations: {self.sample_num}, hypervolume: {self.status['hv']:.4f}\n")
+            print(
+                f"Total evaluations: {self.sample_num}, hypervolume: {self.status['hv']:.4f}\n"
+            )
 
             # return new data iteration by iteration
             yield X_next, Y_next
