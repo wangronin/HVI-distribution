@@ -51,12 +51,14 @@ def main():
                     command = f'python main.py \
                         --problem {problem} --algo {algo} --seed {seed} \
                         --batch-size {args.batch_size} --n-iter {args.n_iter} \
-                        --ref-point {ref_dict[problem]} \
                         --n-process {args.n_inner_process} \
                         --subfolder {args.subfolder} --log-to-file'
-                    if algo != 'dgemo':
-                        command += ' --n-gen 200'
-
+                         # --ref-point {ref_dict[problem]} \
+                    # if algo != 'dgemo':
+                    #     command += ' --n-gen 200'
+                
+                
+                
                 command += f' --n-var {args.n_var} --n-obj {args.n_obj}'
 
                 if args.exp_name is not None:
@@ -66,7 +68,8 @@ def main():
                 Process(target=worker, args=(command, problem, algo, seed, queue)).start()
                 print(f'problem {problem} algo {algo} seed {seed} started')
                 n_active_process += 1
-
+                
+                # breakpoint()
                 if n_active_process >= args.n_process:
                     ret_code, ret_problem, ret_algo, ret_seed = queue.get()
                     if ret_code == signal.SIGINT:

@@ -157,9 +157,10 @@ class HypervolumeImprovement:
         n_sigma = 3
         points_y1 = np.append(self.cells_lb[:,0,0], self.cells_ub[:,0,0][-1])
         points_y2 = np.append(self.cells_lb[0,:,1], self.cells_ub[0,:,1][-1])
-
+        
         n_y1 = len(points_y1) - 1
         n_y2 = len(points_y2) - 1
+        
         i_start = [(i) for i in range(n_y1) if points_y1[i] <= self.mu[0] - n_sigma*self.sigma[0] < points_y1[i+1]]
         i_end = [(i+1) for i in range(n_y1) if points_y1[i] <= self.mu[0] + n_sigma*self.sigma[0] < points_y1[i+1]]
         j_start = [(i) for i in range(n_y2) if points_y2[i] <= self.mu[1] - n_sigma*self.sigma[1] < points_y2[i+1]]
@@ -167,15 +168,15 @@ class HypervolumeImprovement:
 
 
         if i_start == []:
-            i_start == [0]
+            i_start = [0]
         if j_start == []:
-            j_start == [0]
+            j_start = [0]
 
         if i_end == [] or self.mu[0] + n_sigma*self.sigma[0] > points_y1[-1]:
             i_end = [n_y1-1]
         if j_end == [] or  self.mu[1] + n_sigma*self.sigma[1] > points_y2[-1]:
             j_end = [n_y2-1]
-
+            
         ij = [(i, j) for i in range(i_start[0],i_end[0]+1) for j in range(j_start[0], j_end[0]+1) if i+j< self.N]
 
         return ij
@@ -326,7 +327,7 @@ class HypervolumeImprovement:
         if np.isnan(prob):
             prob = 0
         return res + (1 - prob)
-        # return res
+
 
     def cdf_monte_carlo(
         self,

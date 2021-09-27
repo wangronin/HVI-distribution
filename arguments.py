@@ -14,7 +14,7 @@ def get_general_args(args=None):
     '''
     parser = ArgumentParser()
 
-    parser.add_argument('--problem', type=str, default='zdt6', 
+    parser.add_argument('--problem', type=str, default='dtlz1', 
         help='optimization problem')
     parser.add_argument('--n-var', type=int, default=5, 
         help='number of design variables')
@@ -22,7 +22,7 @@ def get_general_args(args=None):
         help='number of objectives')
     parser.add_argument('--n-init-sample', type=int, default=30, 
         help='number of initial design samples')
-    parser.add_argument('--n-iter', type=int, default=170,
+    parser.add_argument('--n-iter', type=int, default=120,
         help='number of optimization iterations')
     parser.add_argument('--ref-point', type=float, nargs='+', default=[15, 15], 
         help='reference point for calculating hypervolume')
@@ -99,7 +99,7 @@ def get_solver_args(args=None):
         help='type of the multiobjective solver')
     parser.add_argument('--pop-size', type=int, default=7,
         help='population size')
-    parser.add_argument('--n-gen', type=int, default=2,
+    parser.add_argument('--n-gen', type=int, default=50,
         help='number of generations')
     parser.add_argument('--pop-init-method', type=str, 
         choices=['nds', 'random', 'lhs'], default='nds', 

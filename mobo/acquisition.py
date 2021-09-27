@@ -282,17 +282,20 @@ class HVI_UCB(Acquisition):
         N = len(sigma)
         F = np.array([float(0)] * N)
         dF = np.array([float(0)] * N)
-        lamda = 1 - 0.3 - np.sqrt(np.log(self.n_sample) / self.n_sample)
+        
+        t = self.n_sample
+        lamda = (0.7 - np.sqrt(np.log(t) / t)) 
+        # breakpoint()
         for i in range(N):
-            hvi = HypervolumeImprovement(pf, rf, mu[i, :], sigma[i, :])
+            # hvi = HypervolumeImprovement(pf, rf, mu[i, :], sigma[i, :])
             
             
             
             
-            # func = lambda x: (-hvi.cdf(x))
-            # sol = minimize(func, 1e-10, method="CG", options={"maxiter": 50})
-            # F[i] = sol.fun
-            # dF[i] = sol.x
+        #     # func = lambda x: (-hvi.cdf(x))
+        #     # sol = minimize(func, 1e-10, method="CG", options={"maxiter": 10})
+        #     # F[i] = sol.fun
+        #     # dF[i] = sol.x
             
             
             # ----------------method1 
@@ -303,5 +306,29 @@ class HVI_UCB(Acquisition):
             sol = minimize(func, 1e-10, method="CG", options={"maxiter": 50})
             F[i] = sol.fun
             dF[i] = sol.x
-        # plt.show()
+            
+        
+        # # PC version----------------------
+        # t = self.n_sample
+        # # lamda = np.log(t)/t  * np.log(t)/t * 100
+        # lamda = t/np.log(t) * 0.1
+        
+        
+        # # a = 10
+        # # b = 10
+        # # d = 2
+        # # r = 1
+        # # sigma_mean = np.mean(sigma)
+        # # t = self.n_sample
+        # # belta = 2*np.log(np.power(t,2) * 2 * np.pi ** 2 / 3 / sigma_mean) + \
+        # #     2 * d * np.log(np.power(t,2)  * d * b * r * np.sqrt(np.log(4*d*a/sigma_mean)))
+
+        # for i in range(N):
+        #     hvi = HypervolumeImprovement(pf, rf, mu[i, :], sigma[i, :])
+        #     # func = lambda x: abs(lamda - hvi.cdf(x))
+        #     F[i] = -(1 - hvi.cdf(lamda))
+            
+        #     if F[i] == -np.inf:
+        #         F[i] = 0
+        #         # breakpoint()
         return F, dF, hF

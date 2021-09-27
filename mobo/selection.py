@@ -235,7 +235,7 @@ class HVI_UCB_Uncertainty(Selection):
         # version 2: same with Version 1, but is faster as it directly uses the previous calculations
         X = solution['x']
         # solution['a'][solution['y'] == np.inf] =  
-        top_indices = np.argsort(-1 * solution['y'], axis = 0)[::-1][:self.batch_size][0] # min 
+        top_indices = np.argsort(-1 * solution['a'], axis = 0)[::-1][:self.batch_size][0] # min 
         # print('using hvi- as selection function', flush=True)
         return X[top_indices], None
     
