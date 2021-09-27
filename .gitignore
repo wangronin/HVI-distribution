@@ -2,6 +2,7 @@
 .DS_Store
 
 result/
+result_distribution_cprofiler_ci_das/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -132,3 +133,5 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+

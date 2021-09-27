@@ -200,53 +200,18 @@ class HVI_UCB_Uncertainty(Selection):
     Uncertainty
     '''
     def select(self, solution, surrogate_model, status, transformation):
-        # version 1: repl
-        #   select "x" of which a is smallest and hvi.cdf(a) == 0.95
+        # # method 2
+        # # find the solotion with a minimun hypervolumne improvement (a)
         # X = solution['x']
-        # val = surrogate_model.evaluate(X, std=True)
+        # top_indices = np.argsort(-1 * solution['a'], axis = 0)[::-1][:self.batch_size][0] # min 
         
         
-        # # kaifeng 
-        # # X = transformation.undo(x=X)
-        
-        # pf = status['pfront'].copy()
-        # mu, sigma = val['F'], val['S']
-        # rf = self.ref_point
-        # n_candi = len(sigma)
-        # hvi_ubc = np.array([0] *  n_candi)
-        # for i in range(0,n_candi):
-        #     hvi = HypervolumeImprovement(pf, rf, mu[i,:], sigma[i,:])
-        #     func = lambda x: abs(hvi.cdf(x) - 0.95)
-        #     # func = lambda x: abs(hvi.cdf_monte_carlo(x, n_sample=(1e5), eval_sd=False)- 0.95)
-        #     # root = optimize.bisect(func, -999, 9e99, maxiter=500)
-        #     # # sol = root(func, x0=0, args=(), method='hybr', jac=None, tol=None, callback=None, options=None)
-        #     # hvi_ubc[i] = root
-            
-        #     sol = minimize(func, 1, method='CG', options={'maxiter': 30})
-        #     hvi_ubc[i] = sol.x
-            
-        # top_indices = np.argsort(-1 * hvi_ubc)[::-1][:self.batch_size]
-        
-        
-        # # uncertainty = np.prod(Y_std, axis=1)
-        # # top_indices = np.argsort(uncertainty)[::-1][:self.batch_size]
-        # return X[top_indices], None
-        
-        # version 2: same with Version 1, but is faster as it directly uses the previous calculations
+        # method 1
+        # use poi as the selection critierion
         X = solution['x']
-        # solution['a'][solution['y'] == np.inf] =  
-        top_indices = np.argsort(-1 * solution['a'], axis = 0)[::-1][:self.batch_size][0] # min 
-        # print('using hvi- as selection function', flush=True)
+        top_indices = np.argsort(-1 * solution['y'], axis = 0)[::-1][:self.batch_size][0] # min 
         return X[top_indices], None
     
         
         
-        # version 3: find the x of which UBC is max
-        # X = solution['x']
-        # Y = solution['y']
-        # top_indices = np.argsort(-1 * Y)[::-1][:self.batch_size]
-        # if self.batch_size == 1:
-        #     print('UBC = %f' %Y[top_indices[0]])
-        #     return X[top_indices[0]], None
-        # else:
-        #     return X[top_indices], None
+

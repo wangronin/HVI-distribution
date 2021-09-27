@@ -9,6 +9,8 @@ from .utils import expand, find_pareto_front, safe_divide
 import matplotlib.pyplot as plt
 from pynverse import inversefunc
 from pymoo.factory import get_performance_indicator
+from joblib import Parallel, delayed
+import timeit
 
 """
 Acquisition functions that define the objectives for surrogate multi-objective problem
@@ -213,7 +215,7 @@ class UCB(Acquisition):
         lamda = np.sqrt(np.log(self.n_sample) / self.n_sample)
 
         y_mean, y_std = val["F"], val["S"]
-        F = y_mean - 2 * y_std
+        F = y_mean - lamda * y_std
 
         
         hv = get_performance_indicator('hv', ref_point=self.rf)
@@ -273,39 +275,51 @@ class HVI_UCB(Acquisition):
         self.pf = find_pareto_front(Y, return_index=False)
         self.rf = np.max(Y, axis=0) + 1
         # self.rf = [15, 15]
-
-    def evaluate(self, val, calc_gradient=False, calc_hessian=False):
-        dF, hF = None, None
+        
+    def optimize_function(self, i):
         pf = self.pf
-        mu, sigma = val["F"], val["S"]
+        mu, sigma = self.val["F"], self.val["S"]
         rf = self.rf
-        N = len(sigma)
-        F = np.array([float(0)] * N)
-        dF = np.array([float(0)] * N)
         
         t = self.n_sample
         lamda = (0.7 - np.sqrt(np.log(t) / t)) 
-        # breakpoint()
-        for i in range(N):
-            # hvi = HypervolumeImprovement(pf, rf, mu[i, :], sigma[i, :])
+        
+        hvi = HypervolumeImprovement(pf, rf, mu[i,:], sigma[i,:])
+        
+        func = lambda x: abs(lamda - hvi.cdf(x))
+        sol = minimize(func, 1e-10, method="CG", options={"maxiter": 50})
+        
+        p = sol.fun
+        a = sol.x
+        
+        return float(p), float(a)
+
+    def evaluate(self, val, calc_gradient=False, calc_hessian=False):
+        dF, hF = None, None
+        self.val = val
+        N = len(val["S"])
+        F = np.array([float(0)] * N)
+        dF = np.array([float(0)] * N)
+        
+        
+  
+        res = Parallel(n_jobs=6)(
+            delayed(self.optimize_function)(i) for i in range(N))
+        
+        F = np.array([res[i][0] for i in range(N)])
+        dF = np.array([res[i][i] for i in range(N)])
+    
             
+        
+        # for i in range(N):
+
+        #     # ----------------method1 
             
-            
-            
-        #     # func = lambda x: (-hvi.cdf(x))
-        #     # sol = minimize(func, 1e-10, method="CG", options={"maxiter": 10})
-        #     # F[i] = sol.fun
-        #     # dF[i] = sol.x
-            
-            
-            # ----------------method1 
-            
-            hvi = HypervolumeImprovement(pf, rf, mu[i, :], sigma[i, :])
-            func = lambda x: abs(lamda - hvi.cdf(x))
-            # print(belta)
-            sol = minimize(func, 1e-10, method="CG", options={"maxiter": 50})
-            F[i] = sol.fun
-            dF[i] = sol.x
+        #     hvi = HypervolumeImprovement(pf, rf, mu[i, :], sigma[i, :])
+        #     func = lambda x: abs(lamda - hvi.cdf(x))
+        #     sol = minimize(func, 1e-10, method="CG", options={"maxiter": 50})
+        #     F[i] = sol.fun
+        #     dF[i] = sol.x
             
         
         # # PC version----------------------
