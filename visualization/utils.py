@@ -6,13 +6,13 @@ def get_problem_dir(args):
     '''
     Get problem directory under result directory
     '''
-    result_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'result')
+    result_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'result_final')
     problem_dir = os.path.join(result_dir, args.problem, args.subfolder)
     return problem_dir
 
 
 def get_problem_names():
-    top_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'result')
+    top_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'result_final')
     return sorted(os.listdir(top_dir))
 
 

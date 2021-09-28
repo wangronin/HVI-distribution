@@ -114,7 +114,7 @@ class DataExport:
             col_name = f'Uncertainty_f{i + 1}'
             d1[col_name] = Y_next_pred_std[:, i]
             col_name = f'Acquisition_f{i + 1}'
-            if type(self.optimizer.acquisition).__name__ == 'HVI_UCB' or type(self.optimizer.acquisition).__name__ == 'UCB':
+            if type(self.optimizer.acquisition).__name__ == 'HVI_UCB':
                 d1[col_name] = acquisition
             else:  
                 d1[col_name] = acquisition[:, i]

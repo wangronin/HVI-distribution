@@ -3,6 +3,10 @@ import autograd
 from autograd.numpy import row_stack
 from multiprocessing import cpu_count
 from multiprocessing.pool import ThreadPool
+
+# from pymoo.core.problem import Problem as PymooProblem
+# from pymoo.core.problem import evaluate_in_parallel
+
 from pymoo.model.problem import Problem as PymooProblem
 from pymoo.model.problem import at_least2d, evaluate_in_parallel
 

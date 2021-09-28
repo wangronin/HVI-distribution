@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 from arguments import get_vis_args
 from utils import get_problem_dir, get_algo_names, defaultColors
+from math import floor
 
 
 def main():
@@ -14,6 +15,7 @@ def main():
     args = get_vis_args()
     problem_dir = get_problem_dir(args)
     algo_names = get_algo_names(args)
+    
 
     n_algo, n_seed, seed = len(algo_names), args.n_seed, args.seed
 
@@ -30,6 +32,7 @@ def main():
             if n_seed == 1: j = seed
             csv_path = f'{problem_dir}/{algo_names[i]}/{j}/EvaluatedSamples.csv'
             df = pd.read_csv(csv_path)
+            
             data_list[i].append(df)
             if num_init_samples is None and 'iterID' in df:
                 num_init_samples = sum(df['iterID'] == 0)
@@ -53,7 +56,7 @@ def main():
         for j in range(n_seed):
             if n_seed == 1: j = seed
             num_alg_eval = df_HV_list[i].shape[0] - num_init_samples
-            for k in [0.25 * num_alg_eval, 0.5 * num_alg_eval, 0.75 * num_alg_eval, num_alg_eval]:
+            for k in [floor(0.25 * num_alg_eval), floor(0.5 * num_alg_eval), floor(0.75 * num_alg_eval), num_alg_eval]:
                 df_boxplot = df_boxplot.append({
                     'SampleId': k, 
                     'Hypervolume_indicator': df_HV_list[i][f'Hypervolume_indicator_{j + 1}'][k + num_init_samples - 1],
@@ -103,7 +106,7 @@ def main():
         boxmode='group', # group together boxes of the different traces for each value of x
         title=f'Hypervolume Indicator Over {n_seed} Runs for {args.problem}, {num_init_samples} initial samples, batch size {batch_size}'
     )
-
+    
     if args.savefig:
         fig.write_image(f'{args.problem}_hv.png')
     else:

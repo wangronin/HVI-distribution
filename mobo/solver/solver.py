@@ -31,10 +31,13 @@ class Solver:
         '''
         # initialize population
         sampling = self._get_sampling(X, Y)
-
+        
         # setup algorithm
-        algo = self.algo_type(sampling=sampling, **self.algo_kwargs)
-
+        if self.algo_type.__name__ == 'GA':
+            algo = self.algo_type(sampling=sampling, **self.algo_kwargs)
+        elif self.algo_type.__name__ == 'CMAES':
+            algo = self.algo_type(x0=sampling, **self.algo_kwargs)
+       
         # optimization
         res = minimize(problem, algo, ('n_gen', self.n_gen))
 
@@ -61,7 +64,8 @@ class Solver:
             sampling = LatinHypercubeSampling()
         elif self.pop_init_method == 'nds':
             sorted_indices = NonDominatedSorting().do(Y)
-            pop_size = self.algo_kwargs['pop_size']
+            pop_size = self.algo_kwargs['popsize']
+            
             sampling = X[np.concatenate(sorted_indices)][:pop_size]
             # NOTE: use lhs if current samples are not enough
             if len(sampling) < pop_size:

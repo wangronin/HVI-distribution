@@ -31,12 +31,17 @@ def get_args():
 def main():
     args = get_args()
 
-    problems = ['zdt1', 'zdt2', 'zdt3', 'dtlz1', 'dtlz2', 'dtlz3', 'dtlz4', 'dtlz5', 'dtlz6', 'oka1', 'oka2', 'vlmop2', 'vlmop3',
+    problems = ['zdt1', 'zdt2', 'zdt3','zdt4', 'zdt6', 'dtlz1', 'dtlz2', 'dtlz3', 'dtlz4', 'dtlz5', 'dtlz6', 'oka1', 'oka2', 'vlmop2', 'vlmop3',
         're1', 're2', 're3', 're4', 're5', 're6', 're7']
-    algos = {'nsga2': 'NSGA-II', 'parego': 'ParEGO', 'moead-ego': 'MOEA/D-EGO', 'tsemo': 'TSEMO', 'usemo-ei': 'USeMO-EI', 'dgemo': 'DGEMO (Ours)'}
-
-    result_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'result')
-
+    # algos = {'nsga2': 'NSGA-II', 'parego': 'ParEGO', 'moead-ego': 'MOEA/D-EGO', 'tsemo': 'TSEMO', 'usemo-ei': 'USeMO-EI', 'dgemo': 'DGEMO (Ours)'}
+    
+    algos = {'nsga2': 'NSGA-II', 'ucb': 'UCB'}
+    args.n_seed = 5
+    result_dir_visual = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'result')
+     
+    result_dir = os.path.abspath(os.path.join(result_dir_visual, os.pardir)) + '/result'
+    
+    
     n_row, n_col = 4, 5
     fig, axes = plt.subplots(n_row, n_col, figsize=(18, 12))
     n_algo, n_seed, num_eval = len(algos), args.n_seed, args.num_eval

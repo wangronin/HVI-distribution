@@ -15,7 +15,7 @@ def get_general_args(args=None):
     """
     parser = ArgumentParser()
 
-    parser.add_argument("--problem", type=str, default="dtlz1", help="optimization problem")
+    parser.add_argument("--problem", type=str, default="zdt1", help="optimization problem")
     parser.add_argument("--n-var", type=int, default=5, help="number of design variables")
     parser.add_argument("--n-obj", type=int, default=2, help="number of objectives")
     parser.add_argument(
@@ -139,11 +139,11 @@ def get_solver_args(args=None):
         "--solver",
         type=str,
         choices=["nsga2", "moead", "discovery"],
-        default="nsga2",
+        default=None,
         help="type of the multiobjective solver",
     )
-    parser.add_argument("--pop-size", type=int, default=7, help="population size")
-    parser.add_argument("--n-gen", type=int, default=50, help="number of generations")
+    parser.add_argument("--popsize", type=int, default=7, help="population size")
+    parser.add_argument("--n-gen", type=int, default=2, help="number of generations")
     parser.add_argument(
         "--pop-init-method",
         type=str,
@@ -161,7 +161,7 @@ def get_solver_args(args=None):
         "--batch-size", type=int, default=1, help="size of the selected batch in one iteration"
     )
 
-    # ParetoDiscovery solver
+    # ParetoDiscovery 5
     parser.add_argument(
         "--n-cell",
         type=int,

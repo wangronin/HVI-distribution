@@ -303,46 +303,10 @@ class HVI_UCB(Acquisition):
         
         
   
-        res = Parallel(n_jobs=6)(
+        res = Parallel(n_jobs=7)(
             delayed(self.optimize_function)(i) for i in range(N))
         
         F = np.array([res[i][0] for i in range(N)])
-        dF = np.array([res[i][i] for i in range(N)])
+        dF = np.array([res[i][1] for i in range(N)])
     
-            
-        
-        # for i in range(N):
-
-        #     # ----------------method1 
-            
-        #     hvi = HypervolumeImprovement(pf, rf, mu[i, :], sigma[i, :])
-        #     func = lambda x: abs(lamda - hvi.cdf(x))
-        #     sol = minimize(func, 1e-10, method="CG", options={"maxiter": 50})
-        #     F[i] = sol.fun
-        #     dF[i] = sol.x
-            
-        
-        # # PC version----------------------
-        # t = self.n_sample
-        # # lamda = np.log(t)/t  * np.log(t)/t * 100
-        # lamda = t/np.log(t) * 0.1
-        
-        
-        # # a = 10
-        # # b = 10
-        # # d = 2
-        # # r = 1
-        # # sigma_mean = np.mean(sigma)
-        # # t = self.n_sample
-        # # belta = 2*np.log(np.power(t,2) * 2 * np.pi ** 2 / 3 / sigma_mean) + \
-        # #     2 * d * np.log(np.power(t,2)  * d * b * r * np.sqrt(np.log(4*d*a/sigma_mean)))
-
-        # for i in range(N):
-        #     hvi = HypervolumeImprovement(pf, rf, mu[i, :], sigma[i, :])
-        #     # func = lambda x: abs(lamda - hvi.cdf(x))
-        #     F[i] = -(1 - hvi.cdf(lamda))
-            
-        #     if F[i] == -np.inf:
-        #         F[i] = 0
-        #         # breakpoint()
         return F, dF, hF

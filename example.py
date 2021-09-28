@@ -78,7 +78,7 @@ class NLPObjective:
 
 
 def experiment():
-    # # get the arguments from a command line
+    # # get the arguments from a command line 
     # parser = ArgumentParser()
     # parser.add_argument('--problem', type=str, nargs='+', required=True, help='problems to test')
     # parser.add_argument('--algo', type=str, nargs='+', required=True, help='algorithms to test')
@@ -95,8 +95,22 @@ def experiment():
     # parser.add_argument('--log_to_file', type=bool, default=False)
     # parser.add_argument('--n_init_sample', type=int, default=30)
     # args = parser.parse_args()
+    
+   
+    # _, framework_args = get_args()
+    
+  
+    # # set seed
+    # np.random.seed(args.seed)
+    # problem = NLPObjective(args.seed)
 
-    # load arguments by using argument.py
+    # args.algo = args.algo[0]
+    # args.problem = args.problem[0]
+    
+    
+    # --------
+
+    # # load arguments by using argument.py
     args, framework_args = get_args()
 
     # set seed

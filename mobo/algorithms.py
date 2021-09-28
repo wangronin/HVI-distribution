@@ -91,7 +91,7 @@ class HVI_UCB(MOBO):
     config = {
         "surrogate": "gp",
         "acquisition": "hvi_ucb",
-        "solver": "ga",
+        "solver": "cmaes",
         "selection": "HVI_UCB_Uncertainty",
     }
 
