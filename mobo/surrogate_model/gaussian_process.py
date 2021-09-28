@@ -46,12 +46,11 @@ class GaussianProcess(SurrogateModel):
                 ConstantKernel(constant_value=1.0, constant_value_bounds=(1e-5, 1e3)) * main_kernel
             )
             # + ConstantKernel(constant_value=1e-2, constant_value_bounds=(1e-8, 2))
-
             gp = GaussianProcessRegressor(
                 kernel=kernel,
                 # optimizer=constrained_optimization,
                 normalize_y=True,
-                alpha=1e-8,
+                alpha=1e-3,
                 n_restarts_optimizer=int(5 * n_var),
             )
             self.gps.append(gp)

@@ -8,13 +8,14 @@
 #SBATCH --mail-user=<email>
 #SBATCH --mail-type=END,FAIL
 #SBATCH --ntasks=15
+#SBATCH --cpus-per-task=7
 #SBATCH --error="./err/HVI/%x-%j-%a.err"
 #SBATCH --output="./out/HVI/%x-%j-%a.out"
 
 ARGS=(zdt1 zdt2 zdt3 zdt4 zdt6)
-FLAGS="--algo hvi-ucb --n_init_sample 10 --n-iter 30 --batch-size 1 --subfolder /data/wangh5/HVI"
+FLAGS="--algo hvi-ucb --n_init_sample 10 --n-iter 30 --batch-size 1"
 
 for i in {1..15}
 do
-   srun -N1 -n1 -c1 --exclusive python main.py $FLAGS --seed $i --problem ${ARGS[$SLURM_ARRAY_TASK_ID]} &
+   srun -N1 -n1 -c7 --exclusive python main.py $FLAGS --seed $i --problem ${ARGS[$SLURM_ARRAY_TASK_ID]} &
 done
