@@ -6,11 +6,11 @@ from scipy.stats import norm
 
 from .hv_improvement import HypervolumeImprovement
 from .utils import expand, find_pareto_front, safe_divide
-import matplotlib.pyplot as plt
-from pynverse import inversefunc
+# import matplotlib.pyplot as plt
+# from pynverse import inversefunc
 from pymoo.factory import get_performance_indicator
 from joblib import Parallel, delayed
-import timeit
+# import timeit
 
 """
 Acquisition functions that define the objectives for surrogate multi-objective problem
@@ -217,16 +217,16 @@ class UCB(Acquisition):
         y_mean, y_std = val["F"], val["S"]
         F = y_mean - lamda * y_std
 
-        
+
         hv = get_performance_indicator('hv', ref_point=self.rf)
         hv_current = hv.calc(self.pf)
-        
-        
+
+
         FF = np.array([float(0)] * len(F))
         for i in range(0,len(F)):
             FF[i] = hv_current - hv.calc(np.vstack([self.pf, F[i]]))
-        
-        
+
+
         dF, hF = None, None
         dy_mean, hy_mean, dy_std, hy_std = val["dF"], val["hF"], val["dS"], val["hS"]
 
@@ -275,23 +275,23 @@ class HVI_UCB(Acquisition):
         self.pf = find_pareto_front(Y, return_index=False)
         self.rf = np.max(Y, axis=0) + 1
         # self.rf = [15, 15]
-        
+
     def optimize_function(self, i):
         pf = self.pf
         mu, sigma = self.val["F"], self.val["S"]
         rf = self.rf
-        
+
         t = self.n_sample
-        lamda = (0.7 - np.sqrt(np.log(t) / t)) 
-        
-        hvi = HypervolumeImprovement(pf, rf, mu[i,:], sigma[i,:])
-        
+        lamda = (0.7 - np.sqrt(np.log(t) / t))
+
+        hvi = HypervolumeImprovement(pf,  rf,  mu[i,:],  sigma[i,:])
+
         func = lambda x: abs(lamda - hvi.cdf(x))
         sol = minimize(func, 1e-10, method="CG", options={"maxiter": 50})
-        
+
         p = sol.fun
         a = sol.x
-        
+
         return float(p), float(a)
 
     def evaluate(self, val, calc_gradient=False, calc_hessian=False):
@@ -300,13 +300,13 @@ class HVI_UCB(Acquisition):
         N = len(val["S"])
         F = np.array([float(0)] * N)
         dF = np.array([float(0)] * N)
-        
-        
-  
+
+
+
         res = Parallel(n_jobs=7)(
             delayed(self.optimize_function)(i) for i in range(N))
-        
+
         F = np.array([res[i][0] for i in range(N)])
         dF = np.array([res[i][1] for i in range(N)])
-    
+
         return F, dF, hF

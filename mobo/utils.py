@@ -7,6 +7,7 @@ class Timer:
     '''
     For time recording and message logging
     '''
+
     def __init__(self):
         self.t = time()
 
@@ -16,7 +17,7 @@ class Timer:
         if string is not None:
             msg = string + ': ' + msg
         print(msg)
-        
+
         if reset:
             self.t = time()
 
@@ -28,7 +29,8 @@ def find_pareto_front(Y, return_index=False):
     '''
     Find pareto front (undominated part) of the input performance data.
     '''
-    if len(Y) == 0: return np.array([])
+    if len(Y) == 0:
+        return np.array([])
     sorted_indices = np.argsort(Y.T[0])
     pareto_indices = []
     for idx in sorted_indices:

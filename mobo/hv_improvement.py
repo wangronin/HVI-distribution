@@ -17,8 +17,8 @@ from joblib import Parallel, delayed
 # from scipy.integrate import quad
 from scipy.special import binom, factorial
 
-from .hypervolume import hypervolume as hv
-from .special import D, cdf_product_of_truncated_gaussian, pdf_product_of_truncated_gaussian
+from hypervolume import hypervolume as hv
+from special import D, cdf_product_of_truncated_gaussian, pdf_product_of_truncated_gaussian
 
 np.seterr(divide="ignore", invalid="ignore")
 warnings.simplefilter("ignore")
@@ -152,35 +152,32 @@ class HypervolumeImprovement:
         else:
             self.fac, self.bc = None, None
         return v
-    
-    def get_integral_box_index(self,): 
+
+    def get_integral_box_index(self,):
         n_sigma = 3
-        points_y1 = np.append(self.cells_lb[:,0,0], self.cells_ub[:,0,0][-1])
-        points_y2 = np.append(self.cells_lb[0,:,1], self.cells_ub[0,:,1][-1])
-        
+        points_y1 = np.append(self.cells_lb[:, 0, 0], self.cells_ub[:, 0, 0][-1])
+        points_y2 = np.append(self.cells_lb[0, :, 1], self.cells_ub[0, :, 1][-1])
+        points_y1[0] = -np.inf
+        points_y2[0] = -np.inf
+        points_y1[-1] = np.inf
+        points_y2[-1] = np.inf
+
         n_y1 = len(points_y1) - 1
         n_y2 = len(points_y2) - 1
-        
-        i_start = [(i) for i in range(n_y1) if points_y1[i] <= self.mu[0] - n_sigma*self.sigma[0] < points_y1[i+1]]
-        i_end = [(i+1) for i in range(n_y1) if points_y1[i] <= self.mu[0] + n_sigma*self.sigma[0] < points_y1[i+1]]
-        j_start = [(i) for i in range(n_y2) if points_y2[i] <= self.mu[1] - n_sigma*self.sigma[1] < points_y2[i+1]]
-        j_end = [(i+1) for i in range(n_y2) if points_y2[i] <= self.mu[1] + n_sigma*self.sigma[1] < points_y2[i+1]]
 
+        i_start = [(i) for i in range(n_y1) if points_y1[i] <=
+                   self.mu[0] - n_sigma * self.sigma[0] < points_y1[i + 1]]
+        i_end = [(i + 1) for i in range(n_y1) if points_y1[i] <=
+                 self.mu[0] + n_sigma * self.sigma[0] < points_y1[i + 1]]
+        j_start = [(i) for i in range(n_y2) if points_y2[i] <=
+                   self.mu[1] - n_sigma * self.sigma[1] < points_y2[i + 1]]
+        j_end = [(i + 1) for i in range(n_y2) if points_y2[i] <=
+                 self.mu[1] + n_sigma * self.sigma[1] < points_y2[i + 1]]
 
-        if i_start == []:
-            i_start = [0]
-        if j_start == []:
-            j_start = [0]
-
-        if i_end == [] or self.mu[0] + n_sigma*self.sigma[0] > points_y1[-1]:
-            i_end = [n_y1-1]
-        if j_end == [] or  self.mu[1] + n_sigma*self.sigma[1] > points_y2[-1]:
-            j_end = [n_y2-1]
-            
-        ij = [(i, j) for i in range(i_start[0],i_end[0]+1) for j in range(j_start[0], j_end[0]+1) if i+j< self.N]
+        ij = [(i, j) for i in range(i_start[0], i_end[0] + 1)
+              for j in range(j_start[0], j_end[0] + 1) if i + j < self.N]
 
         return ij
-
 
     def __internal_loop_over_cells(
         self,
@@ -198,17 +195,20 @@ class HypervolumeImprovement:
         # ij = [(i, j) for i in range(self.N) for j in range(self.N - i)]
         ij = self.get_integral_box_index()
         
-        prob = 0  # probability in the dominating region w.r.t. the attainment boundary
-        res = (
-            Parallel(n_jobs=n_jobs)(delayed(func)(v, i, j, **kwargs) for i, j in ij)
-            if parallel
-            else [func(v, i, j, **kwargs) for i, j in ij]
-        )
-        for k, (i, j) in enumerate(ij):
-            prob_ij = self.prob_in_cell(i, j)
-            terms[i, j, :] = res[k] * prob_ij
-            prob += prob_ij
-        return np.nansum(terms, axis=(0, 1)), prob
+        if ij == []:
+            return np.zeros(len(v)),0
+        else: 
+            prob = 0  # probability in the dominating region w.r.t. the attainment boundary
+            res = (
+                Parallel(n_jobs=n_jobs)(delayed(func)(v, i, j, **kwargs) for i, j in ij)
+                if parallel
+                else [func(v, i, j, **kwargs) for i, j in ij]
+            )
+            for k, (i, j) in enumerate(ij):
+                prob_ij = self.prob_in_cell(i, j)
+                terms[i, j, :] = res[k] * prob_ij
+                prob += prob_ij
+            return np.nansum(terms, axis=(0, 1)), prob
 
     def pdf_conditional(
         self, v: np.ndarray, i: int, j: int, taylor_expansion: bool = False, taylor_order: int = 25
@@ -328,7 +328,6 @@ class HypervolumeImprovement:
             prob = 0
         return res + (1 - prob)
 
-
     def cdf_monte_carlo(
         self,
         v: Union[float, List[float], np.ndarray],
@@ -356,8 +355,8 @@ class HypervolumeImprovement:
         if isinstance(v, (int, float)):
             v = [v]
         sample = self.mu + self.sigma * np.random.randn(int(n_sample), self.dim)
-        fun = lambda x: hv(np.vstack([self.pareto_front.tolist(), x]), self.r)
-        mc_fun = lambda v, delta: np.sum(delta <= v) / (1.0 * n_sample)
+        def fun(x): return hv(np.vstack([self.pareto_front.tolist(), x]), self.r)
+        def mc_fun(v, delta): return np.sum(delta <= v) / (1.0 * n_sample)
         delta = np.array(list(map(fun, sample))) - hv(self.pareto_front.tolist(), self.r)
         estimate = np.array([mc_fun(_, delta) for _ in v])
         if eval_sd:
