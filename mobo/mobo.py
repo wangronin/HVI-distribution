@@ -44,9 +44,7 @@ class MOBO:
 
         self.surrogate_model = framework["surrogate"]  # surrogate model
         self.acquisition = framework["acquisition"]  # acquisition function
-        self.solver = framework[
-            "solver"
-        ]  # multi-objective solver for finding the paretofront
+        self.solver = framework["solver"]  # multi-objective solver for finding the paretofront
         self.selection = framework[
             "selection"
         ]  # selection method for choosing new (batch of) samples to evaluate on real problem
@@ -87,6 +85,7 @@ class MOBO:
         # determine reference point from data if not specified by arguments
         if self.ref_point is None:
             self.ref_point = np.max(Y_init, axis=0)
+
         self.selection.set_ref_point(self.ref_point)
         self._update_status(X_init, Y_init)
         global_timer = Timer()
@@ -114,11 +113,10 @@ class MOBO:
                 self.transformation,
             )
 
-            if type(self.acquisition).__name__ == "HVI_UCB" or type(self.acquisition).__name__ == "UCB":
+            if type(self.acquisition).__name__ in ("HVI_UCB", "UCB"):
                 surr_problem.n_obj = 1
 
             solution = self.solver.solve(surr_problem, X, Y)
-
             timer.log("Surrogate problem solved")
 
             # batch point selection
@@ -127,8 +125,8 @@ class MOBO:
                 solution, self.surrogate_model, self.status, self.transformation
             )
             # taking the precision into account
-            # .search_space is not avaiable 
-            # X_next = self.search_space.round(self.transformation.undo(X_next))
+            if hasattr(self, "search_space"):
+                X_next = self.search_space.round(self.transformation.undo(X_next))
             timer.log("Next sample batch selected")
 
             # update dataset
@@ -138,9 +136,7 @@ class MOBO:
 
             # statistics
             global_timer.log("Total runtime", reset=False)
-            print(
-                f"Total evaluations: {self.sample_num}, hypervolume: {self.status['hv']:.4f}\n"
-            )
+            print(f"Total evaluations: {self.sample_num}, hypervolume: {self.status['hv']:.4f}\n")
 
             # return new data iteration by iteration
             yield X_next, Y_next

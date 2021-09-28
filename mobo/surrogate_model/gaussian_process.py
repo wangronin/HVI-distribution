@@ -21,9 +21,7 @@ class GaussianProcess(SurrogateModel):
         self.gps = []
 
         def constrained_optimization(obj_func, initial_theta, bounds):
-            opt_res = minimize(
-                obj_func, initial_theta, method="L-BFGS-B", jac=True, bounds=bounds
-            )
+            opt_res = minimize(obj_func, initial_theta, method="L-BFGS-B", jac=True, bounds=bounds)
             """
             NOTE: Temporarily disable the checking below because this error sometimes occurs:
                 ConvergenceWarning: lbfgs failed to converge (status=2):
@@ -42,18 +40,19 @@ class GaussianProcess(SurrogateModel):
                     nu=0.5 * nu,
                 )
             else:
-                main_kernel = RBF(
-                    length_scale=np.ones(n_var), length_scale_bounds=(1e-10, 1e5)
-                )
+                main_kernel = RBF(length_scale=np.ones(n_var), length_scale_bounds=(1e-10, 1e5))
 
-            kernel = ConstantKernel(
-                constant_value=1.0, constant_value_bounds=(1e-8, 1e5)
-            ) * main_kernel + ConstantKernel(
-                constant_value=1e-2, constant_value_bounds=(1e-8, 2)
+            kernel = (
+                ConstantKernel(constant_value=1.0, constant_value_bounds=(1e-5, 1e3)) * main_kernel
             )
+            # + ConstantKernel(constant_value=1e-2, constant_value_bounds=(1e-8, 2))
 
             gp = GaussianProcessRegressor(
-                kernel=kernel, optimizer=constrained_optimization
+                kernel=kernel,
+                # optimizer=constrained_optimization,
+                normalize_y=True,
+                alpha=1e-8,
+                n_restarts_optimizer=int(5 * n_var),
             )
             self.gps.append(gp)
 
@@ -74,8 +73,7 @@ class GaussianProcess(SurrogateModel):
             F.append(y_mean)  # y_mean: shape (N,)
 
             if std:
-                # if not hasattr(gp, "_K_inv"):
-                if gp._K_inv is None:
+                if not hasattr(gp, "_K_inv") or gp._K_inv is None:
                     L_inv = solve_triangular(gp.L_.T, np.eye(gp.L_.shape[0]))
                     gp._K_inv = L_inv.dot(L_inv.T)
 
@@ -96,9 +94,7 @@ class GaussianProcess(SurrogateModel):
             ell = np.exp(gp.kernel_.theta[1:-1])  # ell: shape (n_var,)
             sf2 = np.exp(gp.kernel_.theta[0])  # sf2: shape (1,)
 
-            d = np.expand_dims(
-                cdist(X / ell, gp.X_train_ / ell), 2
-            )  # d: shape (N, N_train, 1)
+            d = np.expand_dims(cdist(X / ell, gp.X_train_ / ell), 2)  # d: shape (N, N_train, 1)
 
             X_, X_train_ = np.expand_dims(X, 1), np.expand_dims(gp.X_train_, 0)
             dd_N = X_ - X_train_  # numerator
@@ -113,15 +109,7 @@ class GaussianProcess(SurrogateModel):
                     dK = -3 * sf2 * np.exp(-np.sqrt(3) * d) * d * dd
 
                 elif self.nu == 5:
-                    dK = (
-                        -5.0
-                        / 3
-                        * sf2
-                        * np.exp(-np.sqrt(5) * d)
-                        * (1 + np.sqrt(5) * d)
-                        * d
-                        * dd
-                    )
+                    dK = -5.0 / 3 * sf2 * np.exp(-np.sqrt(5) * d) * (1 + np.sqrt(5) * d) * d * dd
 
                 else:  # RBF
                     dK = -sf2 * np.exp(-0.5 * d ** 2) * d * dd
@@ -142,12 +130,8 @@ class GaussianProcess(SurrogateModel):
                     )  # gp._K_inv: shape (N_train, N_train), K_Ki: shape (N, 1, N_train)
                     dK_Ki = dK_T @ gp._K_inv  # dK_Ki: shape (N, n_var, N_train)
 
-                    dy_var = -np.sum(
-                        dK_Ki * K + K_Ki * dK_T, axis=2
-                    )  # dy_var: shape (N, n_var)
-                    dy_std = 0.5 * safe_divide(
-                        dy_var, y_std
-                    )  # dy_std: shape (N, n_var)
+                    dy_var = -np.sum(dK_Ki * K + K_Ki * dK_T, axis=2)  # dy_var: shape (N, n_var)
+                    dy_std = 0.5 * safe_divide(dy_var, y_std)  # dy_std: shape (N, n_var)
                     dS.append(dy_std)
 
             if calc_hessian:
@@ -177,16 +161,11 @@ class GaussianProcess(SurrogateModel):
                         / 3
                         * sf2
                         * np.exp(-np.sqrt(5) * d)
-                        * (
-                            -5 * d ** 2 * dd ** 2
-                            + (1 + np.sqrt(5) * d) * (dd ** 2 + d * hd)
-                        )
+                        * (-5 * d ** 2 * dd ** 2 + (1 + np.sqrt(5) * d) * (dd ** 2 + d * hd))
                     )
 
                 else:  # RBF
-                    hK = (
-                        -sf2 * np.exp(-0.5 * d ** 2) * ((1 - d ** 2) * dd ** 2 + d * hd)
-                    )
+                    hK = -sf2 * np.exp(-0.5 * d ** 2) * ((1 - d ** 2) * dd ** 2 + d * hd)
 
                 hK_T = hK.transpose(
                     0, 2, 3, 1
@@ -199,9 +178,7 @@ class GaussianProcess(SurrogateModel):
                 if std:
                     K = np.expand_dims(K, 2)  # K: shape (N, 1, 1, N_train)
                     dK = np.expand_dims(dK_T, 2)  # dK: shape (N, n_var, 1, N_train)
-                    dK_Ki = np.expand_dims(
-                        dK_Ki, 2
-                    )  # dK_Ki: shape (N, n_var, 1, N_train)
+                    dK_Ki = np.expand_dims(dK_Ki, 2)  # dK_Ki: shape (N, n_var, 1, N_train)
                     hK_Ki = hK_T @ gp._K_inv  # hK_Ki: shape (N, n_var, n_var, N_train)
 
                     hy_var = -np.sum(

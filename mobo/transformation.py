@@ -117,14 +117,12 @@ class NonStandardTransform(Transformation):
 class SearchSpaceTransform(Transformation):
     def __init__(self, search_space: SearchSpace):
         self.search_space = search_space
-        self.y_scaler = StandardScaler()
+        self.y_scaler = MockupScaler()
 
     def fit(self, _, y):
         self.y_scaler = self.y_scaler.fit(y)
 
-    def do(
-        self, x: np.ndarray = None, y: np.ndarray = None
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    def do(self, x: np.ndarray = None, y: np.ndarray = None) -> Tuple[np.ndarray, np.ndarray]:
         assert x is not None or y is not None
         if x is not None:
             x_res = np.atleast_2d(x).astype(float)
@@ -145,9 +143,7 @@ class SearchSpaceTransform(Transformation):
         elif y is not None:
             return y_res
 
-    def undo(
-        self, x: np.ndarray = None, y: np.ndarray = None
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    def undo(self, x: np.ndarray = None, y: np.ndarray = None) -> Tuple[np.ndarray, np.ndarray]:
         if x is not None:
             x = self.search_space.to_linear_scale(x)
         if y is not None:

@@ -98,16 +98,13 @@ def experiment():
 
     # load arguments by using argument.py
     args, framework_args = get_args()
-    # _, framework_args = get_args()
 
     # set seed
     np.random.seed(args.seed)
     problem = NLPObjective(args.seed)
 
     # initialize optimizer
-    optimizer = get_algorithm(args.algo)(
-        problem, args.n_iter, args.ref_point, framework_args
-    )
+    optimizer = get_algorithm(args.algo)(problem, args.n_iter, args.ref_point, framework_args)
 
     # save arguments & setup logger
     save_args(args, framework_args)
