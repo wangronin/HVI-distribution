@@ -45,12 +45,10 @@ class GaussianProcess(SurrogateModel):
             kernel = (
                 ConstantKernel(constant_value=1.0, constant_value_bounds=(1e-5, 1e3)) * main_kernel
             )
-            # + ConstantKernel(constant_value=1e-2, constant_value_bounds=(1e-8, 2))
             gp = GaussianProcessRegressor(
                 kernel=kernel,
-                # optimizer=constrained_optimization,
                 normalize_y=True,
-                alpha=1e-3,
+                alpha=1e-4,
                 n_restarts_optimizer=int(5 * n_var),
             )
             self.gps.append(gp)
@@ -58,23 +56,22 @@ class GaussianProcess(SurrogateModel):
     def fit(self, X, Y):
         for i, gp in enumerate(self.gps):
             gp.fit(X, Y[:, i])
+            setattr(gp, "_K_inv", None)
 
     def evaluate(self, X, std=False, calc_gradient=False, calc_hessian=False):
         F, dF, hF = [], [], []  # mean
         S, dS, hS = [], [], []  # std
 
         for gp in self.gps:
-
             # mean
             K = gp.kernel_(X, gp.X_train_)  # K: shape (N, N_train)
             y_mean = K.dot(gp.alpha_)
-
             F.append(y_mean)  # y_mean: shape (N,)
 
             if std:
-                if not hasattr(gp, "_K_inv") or gp._K_inv is None:
+                if gp._K_inv is None:
                     L_inv = solve_triangular(gp.L_.T, np.eye(gp.L_.shape[0]))
-                    gp._K_inv = L_inv.dot(L_inv.T)
+                    setattr(gp, "_K_inv", L_inv.dot(L_inv.T))
 
                 y_var = gp.kernel_.diag(X)
                 y_var -= np.einsum("ij,ij->i", np.dot(K, gp._K_inv), K)
