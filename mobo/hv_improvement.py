@@ -17,8 +17,8 @@ from joblib import Parallel, delayed
 # from scipy.integrate import quad
 from scipy.special import binom, factorial
 
-from hypervolume import hypervolume as hv
-from special import D, cdf_product_of_truncated_gaussian, pdf_product_of_truncated_gaussian
+from .hypervolume import hypervolume as hv
+from .special import D, cdf_product_of_truncated_gaussian, pdf_product_of_truncated_gaussian
 
 np.seterr(divide="ignore", invalid="ignore")
 warnings.simplefilter("ignore")
