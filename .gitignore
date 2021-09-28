@@ -3,6 +3,7 @@
 
 result/
 result_distribution_cprofiler_ci_das/
+*.csv
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
