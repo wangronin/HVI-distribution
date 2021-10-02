@@ -11,7 +11,7 @@ from scipy.stats import norm, truncnorm
 
 
 def jit_integrand(integrand_function):
-    jitted_function = jit(integrand_function, nopython=True, error_model="numpy", cache=True)
+    jitted_function = jit(integrand_function, nopython=True, error_model="numpy")
 
     @cfunc(float64(intc, CPointer(float64)))
     def wrapped(n, xx):
@@ -21,7 +21,7 @@ def jit_integrand(integrand_function):
     return LowLevelCallable(wrapped.ctypes)
 
 
-@jit(nopython=True, error_model="numpy", cache=True)
+@jit(nopython=True, error_model="numpy")
 def erf(x: float) -> float:
     """faster approximation of Gaussian error function"""
     p = 0.3275911
@@ -38,17 +38,17 @@ def erf(x: float) -> float:
     return out if x >= 0 else -1.0 * out
 
 
-@jit(nopython=True, error_model="numpy", cache=True)
+@jit(nopython=True, error_model="numpy")
 def dnorm(x: float, mean: float, sd: float) -> float:
     return np.exp(-0.5 * (x - mean) ** 2 / sd ** 2) / (np.sqrt(2 * np.pi) * sd)
 
 
-@jit(nopython=True, error_model="numpy", cache=True)
+@jit(nopython=True, error_model="numpy")
 def pnorm(x: float, loc: float, scale: float) -> float:
     return 0.5 * (1 + erf((x - loc) / scale / np.sqrt(2)))
 
 
-@jit(nopython=True, error_model="numpy", cache=True)
+@jit(nopython=True, error_model="numpy")
 def D2(L: float, U: float, loc: float, scale: float) -> float:
     return 0.5 * (erf((U - loc) / scale / np.sqrt(2)) - erf((L - loc) / scale / np.sqrt(2)))
 
@@ -113,8 +113,8 @@ def cdf_product_of_truncated_gaussian(
         l,
         u,
         args=(p, mean[0], mean[1], sigma[0], sigma[1]),
-        epsabs=1e-5,
-        epsrel=1e-5,
+        epsabs=1e-2,
+        epsrel=1e-2,
     )[0]
     return (term1 - term2 + term3) / normalizer
 

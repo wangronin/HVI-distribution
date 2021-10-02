@@ -5,11 +5,12 @@ from typing import Callable, List, Tuple, Union
 
 import numpy as np
 from joblib import Parallel, delayed
+from numba import njit
 from scipy.integrate import quad
 from scipy.special import binom, factorial
 
 from .hypervolume import hypervolume as hv
-from .special import D, cdf_product_of_truncated_gaussian, pdf_product_of_truncated_gaussian
+from .special import D2, D, cdf_product_of_truncated_gaussian, pdf_product_of_truncated_gaussian
 
 np.seterr(divide="ignore", invalid="ignore")
 warnings.simplefilter("ignore")
@@ -35,10 +36,22 @@ class HypervolumeImprovement:
         self.neg_inf: List[float] = self.mu - 6.0 * self.sigma
         self.r = r
         self.pareto_front = pareto_front
-        self.__set_cells(self.pareto_front)
-        self.__compute_probability_in_cell()
-        # self.fac: List[int] = None
-        # self.bc: List[float] = None
+        (
+            self.cells_lb,
+            self.cells_ub,
+            self.transformed_lb,
+            self.transformed_ub,
+            self.normalizer,
+        ) = HypervolumeImprovement.__set_cells(
+            self.pareto_front, self.N, self.dim, self.mu, self.sigma
+        )
+        (
+            self.prob_in_cell,
+            self.dominating_prob,
+        ) = HypervolumeImprovement.__compute_probability_in_cell(
+            self.dim, self.N, self.cells_lb, self.cells_ub, self.mu, self.sigma
+        )
+        self.ij = self.get_integral_box_index()
 
     @property
     def max_hvi(self):
@@ -69,75 +82,66 @@ class HypervolumeImprovement:
         self._pareto_front = pareto_front[idx]
         self.N = pareto_front.shape[0] - 1
 
-    def __set_cells(self, pareto_front: np.ndarray):
-        self.cells_lb = np.full((self.N, self.N, self.dim), np.nan)
-        self.cells_ub = np.full((self.N, self.N, self.dim), np.nan)
-        self.transformed_lb = np.full((self.N, self.N, self.dim), np.nan)
-        self.transformed_ub = np.full((self.N, self.N, self.dim), np.nan)
-        self.normalizer = np.full((self.N, self.N), np.nan)
+    @njit
+    def __set_cells(
+        pareto_front: np.ndarray, N: int, dim: int, mu: List[float], sigma: List[float]
+    ):
+        cells_lb = np.full((N, N, dim), np.nan)
+        cells_ub = np.full((N, N, dim), np.nan)
+        transformed_lb = np.full((N, N, dim), np.nan)
+        transformed_ub = np.full((N, N, dim), np.nan)
+        normalizer = np.full((N, N), np.nan)
 
-        for i in range(self.N):
-            for j in range(self.N - i):
-                self.cells_lb[i, j] = [pareto_front[i, 0], pareto_front[self.N - j, 1]]
-                self.cells_ub[i, j] = [pareto_front[i + 1, 0], pareto_front[self.N - 1 - j, 1]]
-                self.transformed_lb[i, j] = [
-                    pareto_front[self.N - j, 0] - pareto_front[i + 1, 0],
-                    pareto_front[i, 1] - pareto_front[self.N - 1 - j, 1],
+        for i in range(N):
+            for j in range(N - i):
+                cells_lb[i, j] = [pareto_front[i, 0], pareto_front[N - j, 1]]
+                cells_ub[i, j] = [pareto_front[i + 1, 0], pareto_front[N - 1 - j, 1]]
+                transformed_lb[i, j] = [
+                    pareto_front[N - j, 0] - pareto_front[i + 1, 0],
+                    pareto_front[i, 1] - pareto_front[N - 1 - j, 1],
                 ]
-                self.transformed_ub[i, j] = [
-                    pareto_front[self.N - j, 0] - pareto_front[i, 0],
-                    pareto_front[i, 1] - pareto_front[self.N - j, 1],
+                transformed_ub[i, j] = [
+                    pareto_front[N - j, 0] - pareto_front[i, 0],
+                    pareto_front[i, 1] - pareto_front[N - j, 1],
                 ]
-                mu_prime = self.mu_prime(i, j)
-                self.normalizer[i, j] = np.prod(
-                    [
-                        D(
-                            self.transformed_lb[i, j, k],
-                            self.transformed_ub[i, j, k],
-                            mu_prime[k],
-                            self.sigma[k],
-                        )
-                        for k in range(self.dim)
-                    ]
+                mu_prime = [
+                    pareto_front[N - j, 0] - mu[0],
+                    pareto_front[i, 1] - mu[1],
+                ]
+                normalizer[i, j] = D2(
+                    transformed_lb[i, j, 0],
+                    transformed_ub[i, j, 0],
+                    mu_prime[0],
+                    sigma[0],
+                ) * D2(
+                    transformed_lb[i, j, 1],
+                    transformed_ub[i, j, 1],
+                    mu_prime[1],
+                    sigma[1],
                 )
+        return cells_lb, cells_ub, transformed_lb, transformed_ub, normalizer
 
-    def __compute_probability_in_cell(self):
-        ij = [(i, j) for i in range(self.N) for j in range(self.N - i)]
-        self._prob_in_cell = np.zeros((self.N, self.N, 1))
+    @njit
+    def __compute_probability_in_cell(dim, N, cells_lb, cells_ub, mu, sigma):
+        ij = [(i, j) for i in range(N) for j in range(N - i)]
+        _prob_in_cell = np.zeros((N, N, 1))
         for i, j in ij:
-            self._prob_in_cell[i, j, ...] = self.prob_in_cell(i, j)
+            p1 = D2(cells_lb[i, j][0], cells_ub[i, j][0], mu[0], sigma[0])
+            p2 = D2(cells_lb[i, j][1], cells_ub[i, j][1], mu[1], sigma[1])
+            _prob_in_cell[i, j, ...] = p1 * p2
         # probability in the dominating region w.r.t. the attainment boundary
-        self.dominating_prob = np.nansum(self._prob_in_cell)
+        dominating_prob = np.nansum(_prob_in_cell)
+        return _prob_in_cell, dominating_prob
 
-    def mu_prime(self, i: int, j: int) -> List[float]:
+    @njit
+    def mu_prime(pareto_front: np.ndarray, N: int, mu: List[float], i: int, j: int) -> List[float]:
         return [
-            self.pareto_front[self.N - j, 0] - self.mu[0],
-            self.pareto_front[i, 1] - self.mu[1],
+            pareto_front[N - j, 0] - mu[0],
+            pareto_front[i, 1] - mu[1],
         ]
 
     def gamma(self, i: int, j: int) -> float:
         return self.improvement(self.cells_ub[i, j]) - np.prod(self.transformed_lb[i, j])
-
-    def prob_in_cell(self, i: int, j: int) -> float:
-        """The probability of a Gaussian random point falling in a cell, in which independent
-        marginals are assumed.
-        Parameters
-        ----------
-        i : int
-            the cell's row index
-        j : int
-            the cell's column index
-        Returns
-        -------
-        float
-            the probability
-        """
-        return np.prod(
-            [
-                D(self.cells_lb[i, j][k], self.cells_ub[i, j][k], self.mu[k], self.sigma[k])
-                for k in range(self.dim)
-            ]
-        )
 
     def improvement(
         self, new: List[float], pareto_front: np.ndarray = None, r: np.ndarray = None
@@ -216,19 +220,18 @@ class HypervolumeImprovement:
         v = np.array(v)
         # loop over all the cells
         terms = np.zeros((self.N, self.N, len(v)))
-        ij = self.get_integral_box_index()
 
-        if ij == []:
+        if self.ij == []:
             return np.zeros(len(v)), 0
         else:
             res = (
-                Parallel(n_jobs=n_jobs)(delayed(func)(v, i, j, **kwargs) for i, j in ij)
+                Parallel(n_jobs=n_jobs)(delayed(func)(v, i, j, **kwargs) for i, j in self.ij)
                 if parallel
-                else [func(v, i, j, **kwargs) for i, j in ij]
+                else [func(v, i, j, **kwargs) for i, j in self.ij]
             )
-            for k, (i, j) in enumerate(ij):
+            for k, (i, j) in enumerate(self.ij):
                 terms[i, j, :] = res[k]
-            return np.nansum(terms * self._prob_in_cell, axis=(0, 1))
+            return np.nansum(terms * self.prob_in_cell, axis=(0, 1))
 
     def pdf_conditional(
         self, v: np.ndarray, i: int, j: int, taylor_expansion: bool = False, taylor_order: int = 25
@@ -252,7 +255,7 @@ class HypervolumeImprovement:
             the conditional probability density at volume `v`
         """
         par = (
-            self.mu_prime(i, j),
+            HypervolumeImprovement.mu_prime(self.pareto_front, self.N, self.mu, i, j),
             self.sigma,
             self.transformed_lb[i, j],
             self.transformed_ub[i, j],
@@ -322,7 +325,7 @@ class HypervolumeImprovement:
         """
         L, U = np.prod(self.transformed_lb[i, j]), np.prod(self.transformed_ub[i, j])
         args = (
-            self.mu_prime(i, j),
+            HypervolumeImprovement.mu_prime(self.pareto_front, self.N, self.mu, i, j),
             self.sigma,
             self.transformed_lb[i, j],
             self.transformed_ub[i, j],
@@ -330,49 +333,6 @@ class HypervolumeImprovement:
         )
         a = np.clip(v - self.gamma(i, j), L, U)
         out = np.array([cdf_product_of_truncated_gaussian(v, *args) for v in a])
-        return out
-
-    def cdf_conditional_(
-        self,
-        v: np.ndarray,
-        i: int,
-        j: int,
-    ) -> np.ndarray:
-        """This is the old, deprecated code...
-        Conditional CDF of hypervolume when restricting the objective point in the cell (i, j)
-        Parameters
-        ----------
-        v : np.ndarray
-            the hypervolume values
-        i : int
-            cell's row index
-        j : int
-            cell's column index
-        Returns
-        -------
-        np.ndarray
-            the cumulative probability at volume `v`
-        """
-        L, U = np.prod(self.transformed_lb[i, j]), np.prod(self.transformed_ub[i, j])
-        args = (
-            self.mu_prime(i, j),
-            self.sigma,
-            self.transformed_lb[i, j],
-            self.transformed_ub[i, j],
-            self.normalizer[i, j],
-            self.fac,
-            self.bc,
-        )
-        idx = v.argsort()
-        out = np.zeros(len(v))
-        v = np.clip(v[idx] - self.gamma(i, j), L, U)
-        bounds = [(L if k == 0 else v[k - 1], vv) for k, vv in enumerate(v)]
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            func = lambda l, u: quad(pdf_product_of_truncated_gaussian, l, u, args=args, limit=20)[
-                0
-            ]
-            out[idx] = np.cumsum([func(*b) for b in bounds])
         return out
 
     def cdf(self, v: Union[float, List[float], np.ndarray]) -> np.ndarray:
