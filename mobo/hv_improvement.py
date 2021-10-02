@@ -103,9 +103,9 @@ class HypervolumeImprovement:
 
     def __compute_probability_in_cell(self):
         ij = [(i, j) for i in range(self.N) for j in range(self.N - i)]
-        self._prob_in_cell = np.zeros((self.N, self.N))
+        self._prob_in_cell = np.zeros((self.N, self.N, 1))
         for i, j in ij:
-            self._prob_in_cell[i, j] = self.prob_in_cell(i, j)
+            self._prob_in_cell[i, j, ...] = self.prob_in_cell(i, j)
         # probability in the dominating region w.r.t. the attainment boundary
         self.dominating_prob = np.nansum(self._prob_in_cell)
 
