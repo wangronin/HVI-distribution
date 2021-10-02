@@ -1,7 +1,6 @@
 from time import time
 
 import numpy as np
-from numba import njit
 from pymoo.factory import get_performance_indicator
 
 
@@ -27,7 +26,6 @@ class Timer:
         self.t = time()
 
 
-@njit
 def find_pareto_front(Y, return_index=False):
     """
     Find pareto front (undominated part) of the input performance data.
@@ -38,7 +36,9 @@ def find_pareto_front(Y, return_index=False):
     pareto_indices = []
     for idx in sorted_indices:
         # check domination relationship
-        if not (np.logical_and((Y <= Y[idx]).all(axis=1), (Y < Y[idx]).any(axis=1))).any():
+        a = np.all(Y <= Y[idx], axis=1)
+        b = np.any(Y < Y[idx], axis=1)
+        if not np.any(np.logical_and(a, b)):
             pareto_indices.append(idx)
     pareto_front = Y[pareto_indices].copy()
 

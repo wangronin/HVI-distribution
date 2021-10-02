@@ -274,8 +274,10 @@ class HVI_UCB(Acquisition):
         return self
 
     def beta(self, min_prob) -> float:
-        return 1 - (1 - min_prob) / (self.n_sample - self.n0) ** 1.5
-        # return 0.7 - np.sqrt(np.log(self.n_sample) / self.n_sample)
+        n = self.n_sample - self.n0
+        # return 1 - (1 - min_prob) / n ** 1.5
+        c = (1 - min_prob) / np.sqrt(np.log(2) / 2)
+        return 1 - c * np.sqrt(np.log(n + 1) / (n + 1))
 
     def _evaluate_one(self, i) -> Tuple[float, float]:
         mu, sigma = self.val["F"][i, :], self.val["S"][i, :]
