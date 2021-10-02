@@ -27,8 +27,9 @@ X = Y = np.array(
     ]
 )
 ac = HVI_UCB().fit(X, Y)
-val = {"F": np.array([[5, 0.1]] * 10), "S": np.array([[1, 0.5]] * 10)}
+N = 100
+val = {"F": np.array([[5, 0.1]] * N), "S": np.array([[1, 0.5]] * N)}
 ac.val = val
 
-for i in range(10):
+for i in range(N):
     ac._evaluate_one(i)
