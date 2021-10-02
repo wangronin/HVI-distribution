@@ -1,16 +1,16 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
+from typing import Tuple
 
 import numpy as np
-from scipy.optimize import minimize
+from joblib import Parallel, delayed
+from pymoo.factory import get_performance_indicator
+from scipy.optimize import newton
 from scipy.stats import norm
 
 from .hv_improvement import HypervolumeImprovement
 from .utils import expand, find_pareto_front, safe_divide
-# import matplotlib.pyplot as plt
-# from pynverse import inversefunc
-from pymoo.factory import get_performance_indicator
-from joblib import Parallel, delayed
-# import timeit
 
 """
 Acquisition functions that define the objectives for surrogate multi-objective problem
@@ -217,15 +217,12 @@ class UCB(Acquisition):
         y_mean, y_std = val["F"], val["S"]
         F = y_mean - lamda * y_std
 
-
-        hv = get_performance_indicator('hv', ref_point=self.rf)
+        hv = get_performance_indicator("hv", ref_point=self.rf)
         hv_current = hv.calc(self.pf)
 
-
         FF = np.array([float(0)] * len(F))
-        for i in range(0,len(F)):
+        for i in range(0, len(F)):
             FF[i] = hv_current - hv.calc(np.vstack([self.pf, F[i]]))
-
 
         dF, hF = None, None
         dy_mean, hy_mean, dy_std, hy_std = val["dF"], val["hF"], val["dS"], val["hS"]
@@ -262,51 +259,43 @@ class HVI_UCB(Acquisition):
 
     TODO: add the reference to our paper once it is accepted
     """
-
     requires_std = True
 
-    def __init__(self, quantile: float = 0.95, **kwargs):
+    def __init__(self, tol: float = 1e-1, **kwargs):
         super().__init__(**kwargs)
-        self.n_sample = None
-        self.quantile = quantile
+        self.n_sample: int = 0
+        self.n0: int = 0
+        self.tol: float = tol
 
-    def fit(self, X, Y):
+    def fit(self, X, Y) -> HVI_UCB:
         self.n_sample = X.shape[0]
         self.pf = find_pareto_front(Y, return_index=False)
         self.rf = np.max(Y, axis=0) + 1
-        # self.rf = [15, 15]
+        return self
 
-    def optimize_function(self, i):
-        pf = self.pf
-        mu, sigma = self.val["F"], self.val["S"]
-        rf = self.rf
+    def beta(self, min_prob) -> float:
+        return 1 - (1 - min_prob) / (self.n_sample - self.n0) ** 1.5
+        # return 0.7 - np.sqrt(np.log(self.n_sample) / self.n_sample)
 
-        t = self.n_sample
-        lamda = (0.7 - np.sqrt(np.log(t) / t))
+    def _evaluate_one(self, i) -> Tuple[float, float]:
+        mu, sigma = self.val["F"][i, :], self.val["S"][i, :]
+        hvi = HypervolumeImprovement(self.pf, self.rf, mu, sigma)
+        # probability for the quantile
+        beta = self.beta(1 - hvi.dominating_prob)
+        func = lambda x: np.abs(hvi.cdf(x) - beta)
+        # sample 100 evenly-spaced points in log-10 scale to approximate the quantile
+        x = 10 ** np.linspace(-3, np.log10(hvi.max_hvi), 100)
+        v = func(x)
+        idx = np.argmin(v)
+        out = x[idx]
+        # if the precision of above approximation is not enough
+        if not np.isclose(v[idx], 0, rtol=self.tol, atol=self.tol):
+            # refine the quantile value
+            out = newton(func, x0=out, tol=self.tol)
+        return out
 
-        hvi = HypervolumeImprovement(pf,  rf,  mu[i,:],  sigma[i,:])
-
-        func = lambda x: abs(lamda - hvi.cdf(x))
-        sol = minimize(func, 1e-10, method="CG", options={"maxiter": 50})
-
-        p = sol.fun
-        a = sol.x
-
-        return float(p), float(a)
-
-    def evaluate(self, val, calc_gradient=False, calc_hessian=False):
-        dF, hF = None, None
+    def evaluate(self, val, **_):
         self.val = val
         N = len(val["S"])
-        F = np.array([float(0)] * N)
-        dF = np.array([float(0)] * N)
-
-
-
-        res = Parallel(n_jobs=7)(
-            delayed(self.optimize_function)(i) for i in range(N))
-
-        F = np.array([res[i][0] for i in range(N)])
-        dF = np.array([res[i][1] for i in range(N)])
-
-        return F, dF, hF
+        F = np.atleast_2d(Parallel(n_jobs=7)(delayed(self._evaluate_one)(i) for i in range(N))).T
+        return F, None, None

@@ -2,7 +2,7 @@ import numpy as np
 
 from .factory import init_from_config
 from .surrogate_problem import SurrogateProblem
-from .transformation import SearchSpaceTransform, NonStandardTransform
+from .transformation import NonStandardTransform, SearchSpaceTransform
 from .utils import Timer, calc_hypervolume, find_pareto_front
 
 """
@@ -46,21 +46,20 @@ class MOBO:
         self.acquisition = framework["acquisition"]  # acquisition function
         self.solver = framework["solver"]  # multi-objective solver for finding the paretofront
         if self.solver.__class__.__name__ == "CMAESSolver":
-            del self.solver.algo_kwargs['solver']
+            del self.solver.algo_kwargs["solver"]
             # del self.algo_kwargs['pop_size']
-            del self.solver.algo_kwargs['n_cell']
-            del self.solver.algo_kwargs['n_process']
-            del self.solver.algo_kwargs['cell_size']
-            del self.solver.algo_kwargs['buffer_origin']
-            del self.solver.algo_kwargs['buffer_origin_constant']
-            del self.solver.algo_kwargs['delta_b']
-            del self.solver.algo_kwargs['label_cost']
-            del self.solver.algo_kwargs['delta_p']
-            del self.solver.algo_kwargs['delta_s']
-            del self.solver.algo_kwargs['n_grid_sample']
-            del self.solver.algo_kwargs['n_obj']
-        
-        
+            del self.solver.algo_kwargs["n_cell"]
+            del self.solver.algo_kwargs["n_process"]
+            del self.solver.algo_kwargs["cell_size"]
+            del self.solver.algo_kwargs["buffer_origin"]
+            del self.solver.algo_kwargs["buffer_origin_constant"]
+            del self.solver.algo_kwargs["delta_b"]
+            del self.solver.algo_kwargs["label_cost"]
+            del self.solver.algo_kwargs["delta_p"]
+            del self.solver.algo_kwargs["delta_s"]
+            del self.solver.algo_kwargs["n_grid_sample"]
+            del self.solver.algo_kwargs["n_obj"]
+
         self.selection = framework[
             "selection"
         ]  # selection method for choosing new (batch of) samples to evaluate on real problem
@@ -104,6 +103,7 @@ class MOBO:
 
         self.selection.set_ref_point(self.ref_point)
         self._update_status(X_init, Y_init)
+        self.acquisition.n0 = len(X_init)
         global_timer = Timer()
 
         for i in range(self.n_iter):

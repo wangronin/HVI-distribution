@@ -50,9 +50,7 @@ def pnorm(x: float, loc: float, scale: float) -> float:
 
 @jit(nopython=True, error_model="numpy")
 def D2(L: float, U: float, loc: float, scale: float) -> float:
-    return 0.5 * (
-        erf((U - loc) / scale / np.sqrt(2)) - erf((L - loc) / scale / np.sqrt(2))
-    )
+    return 0.5 * (erf((U - loc) / scale / np.sqrt(2)) - erf((L - loc) / scale / np.sqrt(2)))
 
 
 def D(L, U, loc, scale):
@@ -81,9 +79,7 @@ def integrand_eq4(args):
 
 
 def integrand_eq7(x, m, n, sigma, p):
-    return x ** (2 * m - n - 1) * np.exp(
-        -0.5 * ((x / sigma[0]) ** 2 + (p / x / sigma[1]) ** 2)
-    )
+    return x ** (2 * m - n - 1) * np.exp(-0.5 * ((x / sigma[0]) ** 2 + (p / x / sigma[1]) ** 2))
 
 
 @jit_integrand
@@ -194,9 +190,7 @@ def pdf_product_of_truncated_gaussian(
         L, U = 2 * np.log(alpha) + eta, 2 * np.log(beta) + eta
 
         C1 = p / np.prod(sigma)
-        C2 = np.array(
-            [(2 * m - n) / 2 for n in range(taylor_order) for m in range(n + 1)]
-        )
+        C2 = np.array([(2 * m - n) / 2 for n in range(taylor_order) for m in range(n + 1)])
         C = np.exp(-0.5 * (mean[0] ** 2 / sigma[0] ** 2 + mean[1] ** 2 / sigma[1] ** 2))
         mn = np.array([(m, n) for n in range(taylor_order) for m in range(n + 1)])
         term1 = np.array(
@@ -211,9 +205,7 @@ def pdf_product_of_truncated_gaussian(
                 for m, n in mn
             ]
         )
-        term2 = np.array(
-            [0.5 * (p * sigma[0] / sigma[1]) ** ((2 * m - n) / 2) for m, n in mn]
-        )
+        term2 = np.array([0.5 * (p * sigma[0] / sigma[1]) ** ((2 * m - n) / 2) for m, n in mn])
         bs = (U - L) / 5
         breaks = [(L + bs * i, L + bs * (i + 1)) for i in range(5)]
         out = np.zeros(len(C2))
@@ -222,9 +214,7 @@ def pdf_product_of_truncated_gaussian(
             x = (l + u) / 2
             f = np.exp(-C1 * np.cosh(x) + C2 * x)  # the integrand
             a = f * (C2 - C1 * np.sinh(x))  # first-order derivative
-            b = f * (
-                (C2 - C1 * np.sinh(x)) ** 2 - C1 * np.cosh(x)
-            )  # second-order derivative
+            b = f * ((C2 - C1 * np.sinh(x)) ** 2 - C1 * np.cosh(x))  # second-order derivative
             # c = (
             #     f * (C1 * np.sinh(x) - 2 * C1 * np.cosh(x) * (C2 - C1 * np.cosh(x)))
             #     + ((C2 - C1 * np.sinh(x)) ** 2 - C1 * np.cosh(x)) * a

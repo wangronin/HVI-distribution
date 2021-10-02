@@ -1,11 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Sep 20 13:34:24 2021
-
-@author: kaifengyang
-"""
-
 from __future__ import annotations
 
 import warnings
@@ -13,8 +5,7 @@ from typing import Callable, List, Tuple, Union
 
 import numpy as np
 from joblib import Parallel, delayed
-
-# from scipy.integrate import quad
+from scipy.integrate import quad
 from scipy.special import binom, factorial
 
 from .hypervolume import hypervolume as hv
@@ -22,6 +13,7 @@ from .special import D, cdf_product_of_truncated_gaussian, pdf_product_of_trunca
 
 np.seterr(divide="ignore", invalid="ignore")
 warnings.simplefilter("ignore")
+
 
 __authors__ = ["Hao Wang", "Kaifeng Yang"]
 
@@ -43,9 +35,14 @@ class HypervolumeImprovement:
         self.neg_inf: List[float] = self.mu - 6.0 * self.sigma
         self.r = r
         self.pareto_front = pareto_front
-        self.set_cells(self.pareto_front)
-        self.fac: List[int] = None
-        self.bc: List[float] = None
+        self.__set_cells(self.pareto_front)
+        self.__compute_probability_in_cell()
+        # self.fac: List[int] = None
+        # self.bc: List[float] = None
+
+    @property
+    def max_hvi(self):
+        return self.improvement(self.neg_inf)
 
     @property
     def r(self):
@@ -72,12 +69,13 @@ class HypervolumeImprovement:
         self._pareto_front = pareto_front[idx]
         self.N = pareto_front.shape[0] - 1
 
-    def set_cells(self, pareto_front: np.ndarray):
+    def __set_cells(self, pareto_front: np.ndarray):
         self.cells_lb = np.full((self.N, self.N, self.dim), np.nan)
         self.cells_ub = np.full((self.N, self.N, self.dim), np.nan)
         self.transformed_lb = np.full((self.N, self.N, self.dim), np.nan)
         self.transformed_ub = np.full((self.N, self.N, self.dim), np.nan)
         self.normalizer = np.full((self.N, self.N), np.nan)
+
         for i in range(self.N):
             for j in range(self.N - i):
                 self.cells_lb[i, j] = [pareto_front[i, 0], pareto_front[self.N - j, 1]]
@@ -102,6 +100,14 @@ class HypervolumeImprovement:
                         for k in range(self.dim)
                     ]
                 )
+
+    def __compute_probability_in_cell(self):
+        ij = [(i, j) for i in range(self.N) for j in range(self.N - i)]
+        self._prob_in_cell = np.zeros((self.N, self.N))
+        for i, j in ij:
+            self._prob_in_cell[i, j] = self.prob_in_cell(i, j)
+        # probability in the dominating region w.r.t. the attainment boundary
+        self.dominating_prob = np.nansum(self._prob_in_cell)
 
     def mu_prime(self, i: int, j: int) -> List[float]:
         return [
@@ -153,7 +159,9 @@ class HypervolumeImprovement:
             self.fac, self.bc = None, None
         return v
 
-    def get_integral_box_index(self,):
+    def get_integral_box_index(
+        self,
+    ):
         n_sigma = 3
         points_y1 = np.append(self.cells_lb[:, 0, 0], self.cells_ub[:, 0, 0][-1])
         points_y2 = np.append(self.cells_lb[0, :, 1], self.cells_ub[0, :, 1][-1])
@@ -165,18 +173,34 @@ class HypervolumeImprovement:
         n_y1 = len(points_y1) - 1
         n_y2 = len(points_y2) - 1
 
-        i_start = [(i) for i in range(n_y1) if points_y1[i] <=
-                   self.mu[0] - n_sigma * self.sigma[0] < points_y1[i + 1]]
-        i_end = [(i + 1) for i in range(n_y1) if points_y1[i] <=
-                 self.mu[0] + n_sigma * self.sigma[0] < points_y1[i + 1]]
-        j_start = [(i) for i in range(n_y2) if points_y2[i] <=
-                   self.mu[1] - n_sigma * self.sigma[1] < points_y2[i + 1]]
-        j_end = [(i + 1) for i in range(n_y2) if points_y2[i] <=
-                 self.mu[1] + n_sigma * self.sigma[1] < points_y2[i + 1]]
+        i_start = [
+            (i)
+            for i in range(n_y1)
+            if points_y1[i] <= self.mu[0] - n_sigma * self.sigma[0] < points_y1[i + 1]
+        ]
+        i_end = [
+            (i + 1)
+            for i in range(n_y1)
+            if points_y1[i] <= self.mu[0] + n_sigma * self.sigma[0] < points_y1[i + 1]
+        ]
+        j_start = [
+            (i)
+            for i in range(n_y2)
+            if points_y2[i] <= self.mu[1] - n_sigma * self.sigma[1] < points_y2[i + 1]
+        ]
+        j_end = [
+            (i + 1)
+            for i in range(n_y2)
+            if points_y2[i] <= self.mu[1] + n_sigma * self.sigma[1] < points_y2[i + 1]
+        ]
 
-        ij = [(i, j) for i in range(i_start[0], i_end[0] + 1)
-              for j in range(j_start[0], j_end[0] + 1) if i + j < self.N]
-
+        ij = [
+            (i, j)
+            for i in range(i_start[0], i_end[0] + 1)
+            for j in range(j_start[0], j_end[0] + 1)
+            if i + j < self.N
+        ]
+        # ij = [(i, j) for i in range(self.N) for j in range(self.N - i)]
         return ij
 
     def __internal_loop_over_cells(
@@ -192,23 +216,19 @@ class HypervolumeImprovement:
         v = np.array(v)
         # loop over all the cells
         terms = np.zeros((self.N, self.N, len(v)))
-        # ij = [(i, j) for i in range(self.N) for j in range(self.N - i)]
         ij = self.get_integral_box_index()
-        
+
         if ij == []:
-            return np.zeros(len(v)),0
-        else: 
-            prob = 0  # probability in the dominating region w.r.t. the attainment boundary
+            return np.zeros(len(v)), 0
+        else:
             res = (
                 Parallel(n_jobs=n_jobs)(delayed(func)(v, i, j, **kwargs) for i, j in ij)
                 if parallel
                 else [func(v, i, j, **kwargs) for i, j in ij]
             )
             for k, (i, j) in enumerate(ij):
-                prob_ij = self.prob_in_cell(i, j)
-                terms[i, j, :] = res[k] * prob_ij
-                prob += prob_ij
-            return np.nansum(terms, axis=(0, 1)), prob
+                terms[i, j, :] = res[k]
+            return np.nansum(terms * self._prob_in_cell, axis=(0, 1))
 
     def pdf_conditional(
         self, v: np.ndarray, i: int, j: int, taylor_expansion: bool = False, taylor_order: int = 25
@@ -266,7 +286,7 @@ class HypervolumeImprovement:
         """
         v = self._check_input(v, taylor_expansion, taylor_order)
         idx = v == 0
-        res, prob = self.__internal_loop_over_cells(
+        res = self.__internal_loop_over_cells(
             v,
             self.pdf_conditional,
             taylor_expansion=taylor_expansion,
@@ -276,7 +296,8 @@ class HypervolumeImprovement:
         if np.any(idx):
             res = res.astype(object)
             _ = res[idx]
-            res[idx] = f"{1 - prob} * delta" if _ == 0 else f"{1 - prob} * delta + {_}"
+            prob = 1 - self.dominating_prob
+            res[idx] = f"{prob} * delta" if _ == 0 else f"{prob} * delta + {_}"
         return res
 
     def cdf_conditional(
@@ -311,6 +332,49 @@ class HypervolumeImprovement:
         out = np.array([cdf_product_of_truncated_gaussian(v, *args) for v in a])
         return out
 
+    def cdf_conditional_(
+        self,
+        v: np.ndarray,
+        i: int,
+        j: int,
+    ) -> np.ndarray:
+        """This is the old, deprecated code...
+        Conditional CDF of hypervolume when restricting the objective point in the cell (i, j)
+        Parameters
+        ----------
+        v : np.ndarray
+            the hypervolume values
+        i : int
+            cell's row index
+        j : int
+            cell's column index
+        Returns
+        -------
+        np.ndarray
+            the cumulative probability at volume `v`
+        """
+        L, U = np.prod(self.transformed_lb[i, j]), np.prod(self.transformed_ub[i, j])
+        args = (
+            self.mu_prime(i, j),
+            self.sigma,
+            self.transformed_lb[i, j],
+            self.transformed_ub[i, j],
+            self.normalizer[i, j],
+            self.fac,
+            self.bc,
+        )
+        idx = v.argsort()
+        out = np.zeros(len(v))
+        v = np.clip(v[idx] - self.gamma(i, j), L, U)
+        bounds = [(L if k == 0 else v[k - 1], vv) for k, vv in enumerate(v)]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            func = lambda l, u: quad(pdf_product_of_truncated_gaussian, l, u, args=args, limit=20)[
+                0
+            ]
+            out[idx] = np.cumsum([func(*b) for b in bounds])
+        return out
+
     def cdf(self, v: Union[float, List[float], np.ndarray]) -> np.ndarray:
         """Exact CDF of the hypervolume
         Parameters
@@ -322,11 +386,9 @@ class HypervolumeImprovement:
         np.ndarray
             the cumulative probability at volume `v`
         """
-        res, prob = self.__internal_loop_over_cells(v, self.cdf_conditional)
+        res = self.__internal_loop_over_cells(v, self.cdf_conditional)
         res[res == np.inf] = 0
-        if np.isnan(prob):
-            prob = 0
-        return res + (1 - prob)
+        return res + (1 - self.dominating_prob)
 
     def cdf_monte_carlo(
         self,
@@ -355,8 +417,8 @@ class HypervolumeImprovement:
         if isinstance(v, (int, float)):
             v = [v]
         sample = self.mu + self.sigma * np.random.randn(int(n_sample), self.dim)
-        def fun(x): return hv(np.vstack([self.pareto_front.tolist(), x]), self.r)
-        def mc_fun(v, delta): return np.sum(delta <= v) / (1.0 * n_sample)
+        fun = lambda x: hv(np.vstack([self.pareto_front.tolist(), x]), self.r)
+        mc_fun = lambda v, delta: np.sum(delta <= v) / (1.0 * n_sample)
         delta = np.array(list(map(fun, sample))) - hv(self.pareto_front.tolist(), self.r)
         estimate = np.array([mc_fun(_, delta) for _ in v])
         if eval_sd:
