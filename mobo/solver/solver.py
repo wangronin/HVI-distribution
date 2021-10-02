@@ -36,7 +36,7 @@ class Solver:
         if self.algo_type.__name__ == 'GA':
             algo = self.algo_type(sampling=sampling, **self.algo_kwargs)
         elif self.algo_type.__name__ == 'CMAES':
-            algo = self.algo_type(x0=sampling, **self.algo_kwargs)
+            algo = self.algo_type(x0=None, **self.algo_kwargs)
        
         # optimization
         res = minimize(problem, algo, ('n_gen', self.n_gen))

@@ -23,8 +23,12 @@ def main():
     parser.add_argument('--n-iter', type=int, default=20)
     parser.add_argument('--n-var', type=int, default=6)
     parser.add_argument('--n-obj', type=int, default=2)
+    # kf
+    parser.add_argument("--seed", type=int, default=0, help="random seed")
+    
     args = parser.parse_args()
 
+    # breakpoint()
     # get reference point for each problem first, make sure every algorithm and every seed run using the same reference point
     ref_dict = {}
     for problem in args.problem:
@@ -52,7 +56,8 @@ def main():
                         --problem {problem} --algo {algo} --seed {seed} \
                         --batch-size {args.batch_size} --n-iter {args.n_iter} \
                         --n-process {args.n_inner_process} \
-                        --subfolder {args.subfolder} --log-to-file'
+                        --subfolder {args.subfolder} --log-to-file\
+                        --seed {args.seed}'  # kf
                          # --ref-point {ref_dict[problem]} \
                     # if algo != 'dgemo':
                     #     command += ' --n-gen 200'

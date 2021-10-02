@@ -12,6 +12,8 @@ from scipy.special import binom, factorial
 from .hypervolume import hypervolume as hv
 from .special import D2, D, cdf_product_of_truncated_gaussian, pdf_product_of_truncated_gaussian
 
+import timeit
+
 np.seterr(divide="ignore", invalid="ignore")
 warnings.simplefilter("ignore")
 
@@ -39,6 +41,7 @@ class HypervolumeImprovement:
         (
             self.cells_lb,
             self.cells_ub,
+            self.cells_dist,
             self.transformed_lb,
             self.transformed_ub,
             self.normalizer,
@@ -52,10 +55,11 @@ class HypervolumeImprovement:
             self.dim, self.N, self.cells_lb, self.cells_ub, self.mu, self.sigma
         )
         self.ij = self.get_integral_box_index()
+        self.hv_value = hv(pareto_front.tolist(), r) # for HVI calculation by using HV method
 
     @property
     def max_hvi(self):
-        return self.improvement(self.neg_inf)
+        return self.improvement(self.neg_inf, 0, 0)
 
     @property
     def r(self):
@@ -88,6 +92,7 @@ class HypervolumeImprovement:
     ):
         cells_lb = np.full((N, N, dim), np.nan)
         cells_ub = np.full((N, N, dim), np.nan)
+        cells_dist = np.full((N, N, dim), np.nan)
         transformed_lb = np.full((N, N, dim), np.nan)
         transformed_ub = np.full((N, N, dim), np.nan)
         normalizer = np.full((N, N), np.nan)
@@ -119,7 +124,10 @@ class HypervolumeImprovement:
                     mu_prime[1],
                     sigma[1],
                 )
-        return cells_lb, cells_ub, transformed_lb, transformed_ub, normalizer
+                
+        cells_dist = cells_ub - cells_lb
+        
+        return cells_lb, cells_ub, cells_dist, transformed_lb, transformed_ub, normalizer
 
     @njit
     def __compute_probability_in_cell(dim, N, cells_lb, cells_ub, mu, sigma):
@@ -141,14 +149,16 @@ class HypervolumeImprovement:
         ]
 
     def gamma(self, i: int, j: int) -> float:
-        return self.improvement(self.cells_ub[i, j]) - np.prod(self.transformed_lb[i, j])
+        return self.improvement(self.cells_ub[i, j], i, j) - np.prod(self.transformed_lb[i, j])
 
     def improvement(
-        self, new: List[float], pareto_front: np.ndarray = None, r: np.ndarray = None
+        self, new: List[float], ii: int, jj: int, pareto_front: np.ndarray = None, r: np.ndarray = None
     ) -> float:
         pareto_front = pareto_front if pareto_front else self.pareto_front
-        r = r if r else self.r
-        return hv(np.vstack([pareto_front, new]).tolist(), r) - hv(pareto_front.tolist(), r)
+        r = r if r else self.r  
+        
+        return np.sum([np.prod(self.cells_dist[i][j]) for i in range(ii+1, self.N) for j in range(jj+1, self.N-i) if i+j < self.N ])
+        # return hv(np.vstack([pareto_front, new]).tolist(), r) - self.hv_value
 
     def _check_input(
         self, v: Union[float, List[float], np.ndarray], taylor_expansion: bool, taylor_order: int
@@ -222,7 +232,7 @@ class HypervolumeImprovement:
         terms = np.zeros((self.N, self.N, len(v)))
 
         if self.ij == []:
-            return np.zeros(len(v)), 0
+            return np.zeros(len(v))
         else:
             res = (
                 Parallel(n_jobs=n_jobs)(delayed(func)(v, i, j, **kwargs) for i, j in self.ij)

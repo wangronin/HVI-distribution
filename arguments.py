@@ -143,11 +143,14 @@ def get_solver_args(args=None):
         help="type of the multiobjective solver",
     )
     parser.add_argument("--popsize", type=int, default=7, help="population size")
-    parser.add_argument("--n-gen", type=int, default=2000, help="number of generations")
+    parser.add_argument("--n-gen", type=int, default=50, help="number of generations")
     parser.add_argument("--sigma", type=int, default=0.3, help="step size in cmaes")
-    parser.add_argument("--restarts", type=int, default=1, help="restart number")
+    parser.add_argument("--restarts", type=int, default=3, help="restart number")
     # restart = 1 in EHVI
     parser.add_argument("--bipop", type=bool, default=True, help="whether use bipop")
+
+    parser.add_argument("--restart_from_best", type=bool,
+                        default=False, help="restart from the best")
     parser.add_argument(
         "--pop-init-method",
         type=str,
