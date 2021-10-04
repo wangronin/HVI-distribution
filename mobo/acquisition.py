@@ -294,13 +294,14 @@ class HVI_UCB(Acquisition):
         if not np.isclose(v[idx], 0, rtol=self.tol, atol=self.tol):
             # refine the quantile value
             out = newton(func, x0=out, tol=self.tol, disp=False)
-        return out
+        return float(out)
 
     def evaluate(self, val, calc_gradient=False, calc_hessian=False):
         self.val = val
         N = len(val["S"])
-        F = np.atleast_2d(Parallel(n_jobs=1)(delayed(self._evaluate_one)(i) for i in range(N))).T
+        dF = np.array([float(0)] * N)
+        F = np.atleast_2d(Parallel(n_jobs=7)(delayed(self._evaluate_one)(i) for i in range(N))).T
         
-        FF = np.array([float(0)] * N)
-        FF = [F[i][0] for i in range(N)]
-        return F[:,0], None, None
+        # FF = np.array([float(0)] * N)
+        # FF = [F[i][0] for i in range(N)]
+        return F[:,0], dF, None

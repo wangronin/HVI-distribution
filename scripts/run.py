@@ -24,7 +24,7 @@ def main():
     parser.add_argument('--n-var', type=int, default=6)
     parser.add_argument('--n-obj', type=int, default=2)
     # kf
-    parser.add_argument("--seed", type=int, default=0, help="random seed")
+    # parser.add_argument("--seed", type=int, default=0, help="random seed")
     
     args = parser.parse_args()
 
@@ -56,8 +56,8 @@ def main():
                         --problem {problem} --algo {algo} --seed {seed} \
                         --batch-size {args.batch_size} --n-iter {args.n_iter} \
                         --n-process {args.n_inner_process} \
-                        --subfolder {args.subfolder} --log-to-file\
-                        --seed {args.seed}'  # kf
+                        --subfolder {args.subfolder} --log-to-file'\
+                        # --seed {args.seed}'  # kf
                          # --ref-point {ref_dict[problem]} \
                     # if algo != 'dgemo':
                     #     command += ' --n-gen 200'

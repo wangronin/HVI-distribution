@@ -99,21 +99,21 @@ def experiment():
 
     _, framework_args = get_args()
 
-    # # set seed
-    # np.random.seed(args.seed)
-    # problem = NLPObjective(args.seed)
-
-    # args.algo = args.algo[0]
-    # args.problem = args.problem[0]
-
-    # --------
-
-    # # load arguments by using argument.py
-    args, framework_args = get_args()
-
     # set seed
     np.random.seed(args.seed)
     problem = NLPObjective(args.seed)
+
+    args.algo = args.algo[0]
+    args.problem = args.problem[0]
+
+    # --------
+
+    # # # load arguments by using argument.py
+    # args, framework_args = get_args()
+
+    # # set seed
+    # np.random.seed(args.seed)
+    # problem = NLPObjective(args.seed)
 
     # initialize optimizer
     optimizer = get_algorithm(args.algo)(problem, args.n_iter, args.ref_point, framework_args)

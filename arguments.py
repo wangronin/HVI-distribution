@@ -143,7 +143,7 @@ def get_solver_args(args=None):
         help="type of the multiobjective solver",
     )
     parser.add_argument("--popsize", type=int, default=7, help="population size")
-    parser.add_argument("--n-gen", type=int, default=50, help="number of generations")
+    parser.add_argument("--n-gen", type=int, default=2000, help="number of generations")
     parser.add_argument("--sigma", type=int, default=0.3, help="step size in cmaes")
     parser.add_argument("--restarts", type=int, default=3, help="restart number")
     # restart = 1 in EHVI
