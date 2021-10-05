@@ -285,7 +285,7 @@ class HVI_UCB(Acquisition):
         hvi = HypervolumeImprovement(self.pf, self.rf, mu, sigma)
         # probability for the quantile
         beta = self.get_beta()
-        if beta <= hvi.dominating_prob:
+        if beta <= 1 - hvi.dominating_prob:
             return 0
         func = lambda x: hvi.cdf(x) - beta
         # sample 100 evenly-spaced points in log-10 scale to approximate the quantile

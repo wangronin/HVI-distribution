@@ -28,8 +28,8 @@ X = Y = np.array(
 )
 N = 100
 ac = HVI_UCB().fit(X, Y)
-val = {"F": np.array([[5, 0.1]] * N), "S": np.array([[1, 0.5]] * N)}
-# val = {"F": np.random.rand(N, 2) * 5, "S": np.random.rand(N, 2) * 2}
+# val = {"F": np.array([[5, 0.1]] * N), "S": np.array([[1, 0.5]] * N)}
+val = {"F": np.random.rand(N, 2), "S": np.random.rand(N, 2) * 2}
 ac.val = val
 
 
