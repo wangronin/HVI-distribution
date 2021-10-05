@@ -14,6 +14,7 @@ avals = 10 ** np.linspace(-10, np.log10(10), 100)
 hvi = HypervolumeImprovement(pf, r, mu, sigma)
 
 rst_all_ex = hvi.cdf(avals)
+rst_all_pdf = hvi.pdf(avals)
 rst_all_ex.sort()
 print(rst_all_ex)
 
@@ -22,6 +23,7 @@ print(rst_all_mc)
 
 plt.plot(avals, rst_all_ex, "ro", alpha=0.4)
 plt.plot(avals, rst_all_mc, "k--", mfc="none")
+plt.plot(avals, rst_all_pdf, "r--", mfc="none")
 plt.plot(avals, rst_all_mc + 3 * sd, "b-", alpha=0.5)
 plt.plot(avals, rst_all_mc - 3 * sd, "b-", mfc="none", alpha=0.5)
 plt.xscale("log")

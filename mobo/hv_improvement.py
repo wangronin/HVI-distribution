@@ -131,6 +131,8 @@ class HypervolumeImprovement:
             self.transformed_ub,
             self.normalizer,
         ) = _set_cells(self.pareto_front, self.N, self.dim, self.mu, self.sigma)
+        self._normalizer = self.normalizer * 2 * np.pi * np.prod(self.sigma)
+
         self.prob_in_cell, self.dominating_prob = _compute_probability_in_cell(
             self.dim, self.N, self.cells_lb, self.cells_ub, self.mu, self.sigma
         )
@@ -258,7 +260,7 @@ class HypervolumeImprovement:
             self.sigma,
             self.transformed_lb[i, j],
             self.transformed_ub[i, j],
-            self.normalizer[i, j],
+            self._normalizer[i, j],
         )
         gamma = _gamma(self.cells_volume, self.transformed_lb, self.N, i, j)
         return np.array([pdf_product_of_truncated_gaussian(p, *par) for p in v - gamma])
@@ -278,11 +280,11 @@ class HypervolumeImprovement:
         idx = v == 0
         res = self.__internal_loop_over_cells(v, self.pdf_conditional)
         # NOTE: the density at zero volume is the Dirac delta
-        if np.any(idx):
-            res = res.astype(object)
-            _ = res[idx]
-            prob = 1 - self.dominating_prob
-            res[idx] = f"{prob} * delta" if _ == 0 else f"{prob} * delta + {_}"
+        # if np.any(idx):
+        #     res = res.astype(object)
+        #     _ = res[idx]
+        #     prob = 1 - self.dominating_prob
+        #     res[idx] = f"{prob} * delta" if _ == 0 else f"{prob} * delta + {_}"
         return res
 
     def cdf_conditional(self, v: np.ndarray, i: int, j: int) -> np.ndarray:

@@ -2,7 +2,7 @@ import numpy as np
 
 from .factory import init_from_config
 from .surrogate_problem import SurrogateProblem
-from .transformation import NonStandardTransform #, SearchSpaceTransform
+from .transformation import NonStandardTransform, SearchSpaceTransform
 from .utils import Timer, calc_hypervolume, find_pareto_front
 
 """

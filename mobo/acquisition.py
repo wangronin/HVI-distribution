@@ -261,7 +261,7 @@ class HVI_UCB(Acquisition):
     """
     requires_std = True
 
-    def __init__(self, tol: float = 1e-1, **kwargs):
+    def __init__(self, tol: float = 1e-3, **kwargs):
         super().__init__(**kwargs)
         self.n_sample: int = 0
         self.n0: int = 0
@@ -273,27 +273,32 @@ class HVI_UCB(Acquisition):
         self.rf = np.max(Y, axis=0) + 1
         return self
 
-    def beta(self, min_prob) -> float:
-        n = self.n_sample - self.n0
+    def get_beta(self) -> float:
+        t = self.n_sample - self.n0
+        return norm.cdf(0.55 * np.sqrt(np.log(t * 25)))
         # return 1 - (1 - min_prob) / n ** 1.5
-        c = (1 - min_prob) / np.sqrt(np.log(2) / 2)
-        return 1 - c * np.sqrt(np.log(n + 1) / (n + 1))
+        # c = (1 - min_prob) / np.sqrt(np.log(2) / 2)
+        # return 1 - c * np.sqrt(np.log(t + 1) / (t + 1))
 
     def _evaluate_one(self, i) -> Tuple[float, float]:
         mu, sigma = self.val["F"][i, :], self.val["S"][i, :]
         hvi = HypervolumeImprovement(self.pf, self.rf, mu, sigma)
         # probability for the quantile
-        beta = self.beta(1 - hvi.dominating_prob)
-        func = lambda x: np.abs(hvi.cdf(x) - beta)
+        beta = self.get_beta()
+        if beta <= hvi.dominating_prob:
+            return 0
+        func = lambda x: hvi.cdf(x) - beta
         # sample 100 evenly-spaced points in log-10 scale to approximate the quantile
-        x = 10 ** np.linspace(-3, np.log10(hvi.max_hvi), 100)
-        v = func(x)
+        x = 10 ** np.linspace(-1, np.log10(hvi.max_hvi), 100)
+        v = np.abs(func(x))
         idx = np.argmin(v)
         out = x[idx]
         # if the precision of above approximation is not enough
         if not np.isclose(v[idx], 0, rtol=self.tol, atol=self.tol):
             # refine the quantile value
-            out = newton(func, x0=out, tol=self.tol, disp=False)
+            out_ = newton(func, x0=out, fprime=hvi.pdf, tol=self.tol, maxiter=10, disp=False)
+            if out > 0:
+                out = out_
         return float(out)
 
     def evaluate(self, val, calc_gradient=False, calc_hessian=False):
@@ -301,7 +306,4 @@ class HVI_UCB(Acquisition):
         N = len(val["S"])
         dF = np.array([float(0)] * N)
         F = np.atleast_2d(Parallel(n_jobs=7)(delayed(self._evaluate_one)(i) for i in range(N))).T
-        
-        # FF = np.array([float(0)] * N)
-        # FF = [F[i][0] for i in range(N)]
-        return F[:,0], dF, None
+        return F[:, 0], dF, None

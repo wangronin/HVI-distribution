@@ -21,9 +21,7 @@ class GaussianProcess(SurrogateModel):
         self.gps = []
 
         def constrained_optimization(obj_func, initial_theta, bounds):
-            opt_res = minimize(
-                obj_func, initial_theta, method="L-BFGS-B", jac=True, bounds=bounds
-            )
+            opt_res = minimize(obj_func, initial_theta, method="L-BFGS-B", jac=True, bounds=bounds)
             """
             NOTE: Temporarily disable the checking below because this error sometimes occurs:
                 ConvergenceWarning: lbfgs failed to converge (status=2):
@@ -50,7 +48,7 @@ class GaussianProcess(SurrogateModel):
 
             gp = GaussianProcessRegressor(
                 kernel=kernel,
-                normalize_y=True,
+                normalize_y=False,
                 alpha=1e-5,
                 n_restarts_optimizer=int(5 * n_var),
             )

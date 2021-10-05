@@ -1,9 +1,11 @@
+import math
 import sys
 import warnings
 from typing import List
 
 import numpy as np
 from numba import carray, cfunc, jit
+from numba.core.decorators import njit
 from numba.types import CPointer, float64, intc
 from scipy import LowLevelCallable
 from scipy.integrate import quad
@@ -71,6 +73,25 @@ def D(L, U, loc, scale):
     return out
 
 
+@njit
+def _check_parameters(lower, upper, mean, sigma):
+    (L1, L2), (U1, U2) = lower, upper
+    m1, m2 = mean[0], mean[1]
+    s1, s2 = sigma[0], sigma[1]
+    if L1 * U2 > U1 * L2:  # swap y_1' and y_2'
+        (L2, L1), (U2, U1) = lower, upper
+        m2, m1 = mean[0], mean[1]
+        s2, s1 = sigma[0], sigma[1]
+    return L1, L2, U1, U2, m1, m2, s1, s2
+
+
+@njit
+def _get_integral_bound_cdf(p, L1, L2, U1, U2):
+    beta = U1 if L2 <= 1e-100 else min(U1, p / L2)
+    alpha = max(L1, p / U2)
+    return alpha, beta
+
+
 @jit_integrand
 def integrand_eq4(args):
     x, mu0, mu1, sigma0, sigma1, p = args
@@ -78,14 +99,27 @@ def integrand_eq4(args):
     return out
 
 
-def integrand_eq7(x, m, n, sigma, p):
-    return x ** (2 * m - n - 1) * np.exp(-0.5 * ((x / sigma[0]) ** 2 + (p / x / sigma[1]) ** 2))
+@jit_integrand
+def integrand_cdf_derivative(args):
+    x, a, mu1, mu2, sigma1, sigma2 = args
+    return -1 * np.exp(-0.5 * (((x - mu1) / sigma1) ** 2 + ((a / x - mu2) / sigma2) ** 2)) / x ** 2
 
 
 @jit_integrand
 def integrand_cdf(args):
     x, a, mu0, mu1, sigma0, sigma1 = args
     return 0.5 * (1 + erf((a / x - mu1) / sigma1 / np.sqrt(2))) * dnorm(x, mu0, sigma0)
+
+
+@njit
+def _term1(p, L1, L2, U2, m1, m2, s1, s2):
+    v = p / U2
+    return (D2(L1, v, m1, s1) * D2(L2, U2, m2, s2)) if v > L1 else 0
+
+
+@njit
+def _term2(L2, m1, m2, s1, s2, l, u):
+    return D2(l, u, m1, s1) * pnorm(L2, m2, s2)
 
 
 def cdf_product_of_truncated_gaussian(
@@ -99,48 +133,32 @@ def cdf_product_of_truncated_gaussian(
     if normalizer == 0:
         return 0
 
-    (L1, L2), (U1, U2) = lower, upper
-    if L1 * U2 > U1 * L2:  # swap y_1' and y_2'
-        (L2, L1), (U2, U1) = lower, upper
-        mean = mean[1], mean[0]
-        sigma = sigma[1], sigma[0]
+    # (L1, L2), (U1, U2) = lower, upper
+    # if L1 * U2 > U1 * L2:  # swap y_1' and y_2'
+    #     (L2, L1), (U2, U1) = lower, upper
+    #     mean = mean[1], mean[0]
+    #     sigma = sigma[1], sigma[0]
 
-    l, u = max(L1, p / U2), min(U1, p / L2)
-    term1 = max(D2(L1, p / U2, mean[0], sigma[0]), 0) * D2(L2, U2, mean[1], sigma[1])
-    term2 = D2(l, u, mean[0], sigma[0]) * pnorm(L2, mean[1], sigma[1])
+    # l, u = max(L1, p / U2), min(U1, p / L2)
+
+    L1, L2, U1, U2, m1, m2, s1, s2 = _check_parameters(lower, upper, mean, sigma)
+    l, u = _get_integral_bound_cdf(p, L1, L2, U1, U2)
+
+    term1 = _term1(p, L1, L2, U2, m1, m2, s1, s2)
+    term2 = _term2(L2, m1, m2, s1, s2, l, u)
     term3 = quad(
         integrand_cdf,
         l,
         u,
-        args=(p, mean[0], mean[1], sigma[0], sigma[1]),
+        args=(p, m1, m2, s1, s2),
         epsabs=1e-2,
         epsrel=1e-2,
     )[0]
     return (term1 - term2 + term3) / normalizer
 
 
-def pdf_product_of_truncated_gaussian(
-    p: float,
-    mean: List[float],
-    sigma: List[float],
-    lower: List[float],
-    upper: List[float],
-    normalizer: float,
-    taylor_expansion: bool = False,
-    taylor_order: int = 5,
-    fac: List[float] = None,
-    bc: List[List[float]] = None,
-) -> float:
-    if normalizer == 0:
-        return 0
-    normalizer *= 2 * np.pi * np.prod(sigma)
-    (L1, L2), (U1, U2) = lower, upper
-
-    if L1 * U2 > U1 * L2:  # swap y_1' and y_2'
-        (L2, L1), (U2, U1) = lower, upper
-        mean = mean[1], mean[0]
-        sigma = sigma[1], sigma[0]
-
+@njit
+def _get_integral_bound_pdf(p, L1, L2, U1, U2):
     if L1 * L2 <= p < L1 * U2:
         alpha = L1
         beta = p / L2
@@ -151,82 +169,99 @@ def pdf_product_of_truncated_gaussian(
         alpha = p / U2
         beta = U1
     else:
+        alpha = beta = 0
+    return alpha, beta
+
+
+def pdf_product_of_truncated_gaussian(
+    p: float,
+    mean: List[float],
+    sigma: List[float],
+    lower: List[float],
+    upper: List[float],
+    normalizer: float,
+) -> float:
+    if normalizer == 0:
         return 0
+
+    L1, L2, U1, U2, m1, m2, s1, s2 = _check_parameters(lower, upper, mean, sigma)
+    alpha, beta = _get_integral_bound_pdf(p, L1, L2, U1, U2)
 
     if alpha == beta:
         return 0
 
-    if not taylor_expansion:
-        with warnings.catch_warnings():
-            warnings.simplefilter("error")
-            try:
-                if alpha <= 0 <= beta:
-                    out = (
-                        quad(
-                            integrand_eq4,
-                            alpha,
-                            -1 * sys.float_info.min,
-                            args=(mean[0], mean[1], sigma[0], sigma[1], p),
-                        )[0]
-                        + quad(
-                            integrand_eq4,
-                            sys.float_info.min,
-                            beta,
-                            args=(mean[0], mean[1], sigma[0], sigma[1], p),
-                        )[0]
-                    )
-                else:
-                    out = quad(
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        try:
+            if alpha <= 0 <= beta:
+                out = (
+                    quad(
                         integrand_eq4,
                         alpha,
-                        beta,
-                        args=(mean[0], mean[1], sigma[0], sigma[1], p),
+                        -1 * sys.float_info.min,
+                        args=(m1, m2, s1, s2, p),
                     )[0]
-            except Warning:
-                out = 0
-    else:
-        eta = np.log(sigma[1]) - np.log(sigma[0] * p)
-        # range of the integration
-        L, U = 2 * np.log(alpha) + eta, 2 * np.log(beta) + eta
-
-        C1 = p / np.prod(sigma)
-        C2 = np.array([(2 * m - n) / 2 for n in range(taylor_order) for m in range(n + 1)])
-        C = np.exp(-0.5 * (mean[0] ** 2 / sigma[0] ** 2 + mean[1] ** 2 / sigma[1] ** 2))
-        mn = np.array([(m, n) for n in range(taylor_order) for m in range(n + 1)])
-        term1 = np.array(
-            [
-                (
-                    p ** (n - m)
-                    / fac[n]
-                    * bc[n][m]
-                    * (mean[0] / sigma[0] ** 2) ** m
-                    * (mean[1] / sigma[1] ** 2) ** (n - m)
+                    + quad(
+                        integrand_eq4,
+                        sys.float_info.min,
+                        beta,
+                        args=(m1, m2, s1, s2, p),
+                    )[0]
                 )
-                for m, n in mn
-            ]
-        )
-        term2 = np.array([0.5 * (p * sigma[0] / sigma[1]) ** ((2 * m - n) / 2) for m, n in mn])
-        bs = (U - L) / 5
-        breaks = [(L + bs * i, L + bs * (i + 1)) for i in range(5)]
-        out = np.zeros(len(C2))
-        for l, u in breaks:
-            # expand the integrand at the mid point
-            x = (l + u) / 2
-            f = np.exp(-C1 * np.cosh(x) + C2 * x)  # the integrand
-            a = f * (C2 - C1 * np.sinh(x))  # first-order derivative
-            b = f * ((C2 - C1 * np.sinh(x)) ** 2 - C1 * np.cosh(x))  # second-order derivative
-            # c = (
-            #     f * (C1 * np.sinh(x) - 2 * C1 * np.cosh(x) * (C2 - C1 * np.cosh(x)))
-            #     + ((C2 - C1 * np.sinh(x)) ** 2 - C1 * np.cosh(x)) * a
-            # )  # third-order derivative
-
-            # second-order Taylor approximation of the integral
-            out += (
-                (u - l) * f
-                + ((u - x) ** 2 - (l - x) ** 2) * a / 2
-                + ((u - x) ** 3 - (l - x) ** 3) * b / 6
-                # + ((u - x) ** 4 - (l - x) ** 4) * c / 24
-            )
-        out = C * (term1 * term2 * out).sum()
+            else:
+                out = quad(
+                    integrand_eq4,
+                    alpha,
+                    beta,
+                    args=(m1, m2, s1, s2, p),
+                )[0]
+        except Warning:
+            out = 0
 
     return out / normalizer
+
+
+# def _backup():
+#     eta = np.log(sigma[1]) - np.log(sigma[0] * p)
+#     # range of the integration
+#     L, U = 2 * np.log(alpha) + eta, 2 * np.log(beta) + eta
+
+#     C1 = p / np.prod(sigma)
+#     C2 = np.array([(2 * m - n) / 2 for n in range(taylor_order) for m in range(n + 1)])
+#     C = np.exp(-0.5 * (mean[0] ** 2 / sigma[0] ** 2 + mean[1] ** 2 / sigma[1] ** 2))
+#     mn = np.array([(m, n) for n in range(taylor_order) for m in range(n + 1)])
+#     term1 = np.array(
+#         [
+#             (
+#                 p ** (n - m)
+#                 / fac[n]
+#                 * bc[n][m]
+#                 * (mean[0] / sigma[0] ** 2) ** m
+#                 * (mean[1] / sigma[1] ** 2) ** (n - m)
+#             )
+#             for m, n in mn
+#         ]
+#     )
+#     term2 = np.array([0.5 * (p * sigma[0] / sigma[1]) ** ((2 * m - n) / 2) for m, n in mn])
+#     bs = (U - L) / 5
+#     breaks = [(L + bs * i, L + bs * (i + 1)) for i in range(5)]
+#     out = np.zeros(len(C2))
+#     for l, u in breaks:
+#         # expand the integrand at the mid point
+#         x = (l + u) / 2
+#         f = np.exp(-C1 * np.cosh(x) + C2 * x)  # the integrand
+#         a = f * (C2 - C1 * np.sinh(x))  # first-order derivative
+#         b = f * ((C2 - C1 * np.sinh(x)) ** 2 - C1 * np.cosh(x))  # second-order derivative
+#         # c = (
+#         #     f * (C1 * np.sinh(x) - 2 * C1 * np.cosh(x) * (C2 - C1 * np.cosh(x)))
+#         #     + ((C2 - C1 * np.sinh(x)) ** 2 - C1 * np.cosh(x)) * a
+#         # )  # third-order derivative
+
+#         # second-order Taylor approximation of the integral
+#         out += (
+#             (u - l) * f
+#             + ((u - x) ** 2 - (l - x) ** 2) * a / 2
+#             + ((u - x) ** 3 - (l - x) ** 3) * b / 6
+#             # + ((u - x) ** 4 - (l - x) ** 4) * c / 24
+#         )
+#     out = C * (term1 * term2 * out).sum()

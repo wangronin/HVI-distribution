@@ -1,10 +1,9 @@
+from abc import ABC, abstractmethod
 from typing import List, Tuple
 
-from abc import ABC, abstractmethod
-# from bayes_optim.search_space.search_space import SearchSpace
-# from bayes_optim.search_space.variable import Real
-
 import numpy as np
+from bayes_optim.search_space.search_space import SearchSpace
+from bayes_optim.search_space.variable import Real
 from sklearn.preprocessing import StandardScaler
 
 """
@@ -111,47 +110,47 @@ class StandardTransform(Transformation):
 
 class NonStandardTransform(Transformation):
     def __init__(self):
-        super().__init__(MockupScaler(), MockupScaler())
+        super().__init__(MockupScaler(), StandardScaler())
 
 
-# class SearchSpaceTransform(Transformation):
-#     def __init__(self, search_space: SearchSpace):
-#         self.search_space = search_space
-#         self.y_scaler = MockupScaler()
+class SearchSpaceTransform(Transformation):
+    def __init__(self, search_space: SearchSpace):
+        self.search_space = search_space
+        self.y_scaler = MockupScaler()
 
-#     def fit(self, _, y):
-#         self.y_scaler = self.y_scaler.fit(y)
+    def fit(self, _, y):
+        self.y_scaler = self.y_scaler.fit(y)
 
-#     def do(self, x: np.ndarray = None, y: np.ndarray = None) -> Tuple[np.ndarray, np.ndarray]:
-#         assert x is not None or y is not None
-#         if x is not None:
-#             x_res = np.atleast_2d(x).astype(float)
-#             for i, var in enumerate(self.search_space.data):
-#                 if isinstance(var, Real):
-#                     x_res[:, i] = getattr(var, "_trans")(x_res[:, i])
+    def do(self, x: np.ndarray = None, y: np.ndarray = None) -> Tuple[np.ndarray, np.ndarray]:
+        assert x is not None or y is not None
+        if x is not None:
+            x_res = np.atleast_2d(x).astype(float)
+            for i, var in enumerate(self.search_space.data):
+                if isinstance(var, Real):
+                    x_res[:, i] = getattr(var, "_trans")(x_res[:, i])
 
-#             if len(np.array(x).shape) < 2:
-#                 x_res = x_res.squeeze()
+            if len(np.array(x).shape) < 2:
+                x_res = x_res.squeeze()
 
-#         if y is not None:
-#             y_res = super().do(y=y)
+        if y is not None:
+            y_res = super().do(y=y)
 
-#         if x is not None and y is not None:
-#             return x_res, y_res
-#         elif x is not None:
-#             return x_res
-#         elif y is not None:
-#             return y_res
+        if x is not None and y is not None:
+            return x_res, y_res
+        elif x is not None:
+            return x_res
+        elif y is not None:
+            return y_res
 
-#     def undo(self, x: np.ndarray = None, y: np.ndarray = None) -> Tuple[np.ndarray, np.ndarray]:
-#         if x is not None:
-#             x = self.search_space.to_linear_scale(x)
-#         if y is not None:
-#             y = super().undo(y=y)
+    def undo(self, x: np.ndarray = None, y: np.ndarray = None) -> Tuple[np.ndarray, np.ndarray]:
+        if x is not None:
+            x = self.search_space.to_linear_scale(x)
+        if y is not None:
+            y = super().undo(y=y)
 
-#         if x is not None and y is not None:
-#             return x, y
-#         elif x is not None:
-#             return x
-#         elif y is not None:
-#             return y
+        if x is not None and y is not None:
+            return x, y
+        elif x is not None:
+            return x
+        elif y is not None:
+            return y
