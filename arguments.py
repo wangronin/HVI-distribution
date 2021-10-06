@@ -22,7 +22,7 @@ def get_general_args(args=None):
         "--n-init-sample", type=int, default=30, help="number of initial design samples"
     )
     parser.add_argument(
-        "--n-iter", type=int, default=120, help="number of optimization iterations"
+        "--n-iter", type=int, default=170, help="number of optimization iterations"
     )
     parser.add_argument(
         "--ref-point",

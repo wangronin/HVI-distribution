@@ -274,7 +274,7 @@ class HVI_UCB(Acquisition):
         return self
 
     def get_beta(self) -> float:
-        t = self.n_sample - self.n0
+        t = self.n_sample - self.n0 + 1
         return norm.cdf(0.55 * np.sqrt(np.log(t * 25)))
         # return 1 - (1 - min_prob) / n ** 1.5
         # c = (1 - min_prob) / np.sqrt(np.log(2) / 2)
@@ -286,7 +286,7 @@ class HVI_UCB(Acquisition):
         # probability for the quantile
         beta = self.get_beta()
         if beta <= 1 - hvi.dominating_prob:
-            return 0
+            return 1, 0, beta
         func = lambda x: hvi.cdf(x) - beta
         # sample 100 evenly-spaced points in log-10 scale to approximate the quantile
         x = 10 ** np.linspace(-1, np.log10(hvi.max_hvi), 100)
@@ -299,11 +299,11 @@ class HVI_UCB(Acquisition):
             out_ = newton(func, x0=out, fprime=hvi.pdf, tol=self.tol, maxiter=10, disp=False)
             if out > 0:
                 out = out_
-        return float(out)
+        return [float(v[idx]), float(out), float(beta)]
 
     def evaluate(self, val, calc_gradient=False, calc_hessian=False):
         self.val = val
         N = len(val["S"])
         dF = np.array([float(0)] * N)
-        F = np.atleast_2d(Parallel(n_jobs=7)(delayed(self._evaluate_one)(i) for i in range(N))).T
+        F = np.atleast_2d(Parallel(n_jobs=7)(delayed(self._evaluate_one)(i) for i in range(N)))
         return F[:, 0], dF, None
