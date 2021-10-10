@@ -304,6 +304,5 @@ class HVI_UCB(Acquisition):
     def evaluate(self, val, calc_gradient=False, calc_hessian=False):
         self.val = val
         N = len(val["S"])
-        dF = np.array([float(0)] * N)
         F = np.atleast_2d(Parallel(n_jobs=7)(delayed(self._evaluate_one)(i) for i in range(N)))
-        return F[:, 0], dF, None
+        return -F[:,1], F[:, 0], F[:, 2]
