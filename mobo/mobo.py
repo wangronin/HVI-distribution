@@ -59,6 +59,9 @@ class MOBO:
             del self.solver.algo_kwargs["delta_s"]
             del self.solver.algo_kwargs["n_grid_sample"]
             del self.solver.algo_kwargs["n_obj"]
+            # del self.solver.algo_kwargs["pop_size"]
+            # self.solver.algo_kwargs["n-gen"] = \
+            #     self.solver.algo_kwargs["n-gen"] * self.solver.algo_kwargs["restarts"]
 
         self.selection = framework[
             "selection"
@@ -128,9 +131,13 @@ class MOBO:
                 self.acquisition,
                 self.transformation,
             )
-
-            if type(self.acquisition).__name__ in ("HVI_UCB", "UCB"):
+                
+            acquisition_func = type(self.acquisition).__name__ 
+            if acquisition_func in ['UCB'] or acquisition_func.startswith('HVI_UCB'):
                 surr_problem.n_obj = 1
+                
+            # if type(self.acquisition).__name__ in ("HVI_UCB", "UCB"):
+            #     surr_problem.n_obj = 1
 
             solution = self.solver.solve(surr_problem, X, Y)
             timer.log("Surrogate problem solved")

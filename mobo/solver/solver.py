@@ -29,23 +29,32 @@ class Solver:
         '''
         Solve the multi-objective problem
         '''
-        # initialize population
-        sampling = self._get_sampling(X, Y)
         
+        
+        sampling = self._get_sampling(X, Y)     # initialize population
         # setup algorithm
         if self.algo_type.__name__ == 'GA':
+            
             algo = self.algo_type(sampling=sampling, **self.algo_kwargs)
         elif self.algo_type.__name__ == 'CMAES':
-            algo = self.algo_type(x0=None, **self.algo_kwargs)
+            algo = self.algo_type(x0=sampling, **self.algo_kwargs)
        
         # optimization
         res = minimize(problem, algo, ('n_gen', self.n_gen))
 
         # construct solution
-        self.solution = {'x': res.pop.get('X'), 
-                         'y': res.pop.get('F'), 
-                         'a': res.pop.get('dF'),
-                         'algo': res.algorithm}
+        acquisition_func = type(problem.acquisition).__name__
+        if acquisition_func in ['UCB'] or acquisition_func.startswith('HVI_UCB'):
+            self.solution = {'x':   res.pop.get('X'), 
+                             'y':   res.pop.get('F'), 
+                             'a':   res.pop.get('dF'),
+                             'beta': res.pop.get('hF'), 
+                             'algo': res.algorithm}
+        else:
+            self.solution = {'x': res.pop.get('X'), 
+                                 'y': res.pop.get('F'), 
+                                 'algo': res.algorithm}
+
 
         # fill the solution in case less than batch size
         pop_size = len(self.solution['x'])

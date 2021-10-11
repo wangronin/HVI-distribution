@@ -41,7 +41,7 @@ def get_general_args(args=None):
     parser.add_argument(
         "--algo",
         type=str,
-        default="hvi-ucb",
+        default="hvic-m4-es",
         # parser.add_argument('--algo', type=str, default='ucb',
         # parser.add_argument('--algo', type=str, default='usemo-ei',
         help="type of algorithm to use with some predefined arguments, or custom arguments",

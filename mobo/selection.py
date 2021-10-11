@@ -200,16 +200,37 @@ class HVI_UCB_Uncertainty(Selection):
     Uncertainty
     '''
     def select(self, solution, surrogate_model, status, transformation):
-        # # method 2
-        # # find the solotion with a minimun hypervolumne improvement (a)
-        # X = solution['x']
-        # top_indices = np.argsort(-1 * solution['a'], axis = 0)[::-1][:self.batch_size][0] # min 
-        
-        
-        # method 1
-        # use poi as the selection critierion
         X = solution['x']
         top_indices = np.argsort(-1 * solution['y'], axis = 0)[::-1][:self.batch_size][0] # min 
+        return X[top_indices], None
+    
+class MinCriterion(Selection):
+    '''
+    Uncertainty
+    '''
+    def select(self, solution, surrogate_model, status, transformation):
+        X = solution['x']
+        top_indices = np.argsort(-1 * solution['y'], axis = 0)[::-1][:self.batch_size][0] # min abs(PI - CI)
+        return X[top_indices], None
+
+
+
+class MaxCriterion(Selection):
+    '''
+    Uncertainty
+    '''
+    def select(self, solution, surrogate_model, status, transformation):
+        X = solution['x']
+        top_indices = np.argsort(solution['a'], axis = 0)[::-1][:self.batch_size][0] # max a
+        return X[top_indices], None
+    
+class MinCriterionA(Selection):
+    '''
+    Uncertainty
+    '''
+    def select(self, solution, surrogate_model, status, transformation):
+        X = solution['x']
+        top_indices = np.argsort(-1 * solution['a'], axis = 0)[::-1][:self.batch_size][0] # min a
         return X[top_indices], None
     
         

@@ -17,14 +17,17 @@ def get_surrogate_model(name):
 
 
 def get_acquisition(name):
-    from .acquisition import IdentityFunc, PI, EI, UCB, HVI_UCB
+    from .acquisition import IdentityFunc, PI, EI, UCB, HVI_UCB_M1, HVI_UCB_M2, HVI_UCB_M3, HVI_UCB_M4
 
     acquisition = {
         'identity': IdentityFunc,
         'pi': PI,
         'ei': EI,
         'ucb': UCB,
-        'hvi_ucb': HVI_UCB,
+        'hvi_ucb_m1': HVI_UCB_M1,
+        'hvi_ucb_m2': HVI_UCB_M2,
+        'hvi_ucb_m3': HVI_UCB_M3,
+        'hvi_ucb_m4': HVI_UCB_M4,
     }
 
     acquisition['default'] = IdentityFunc
@@ -54,7 +57,7 @@ def get_solver(name):
 
 
 def get_selection(name):
-    from .selection import HVI, Uncertainty, Random, DGEMOSelect, MOEADSelect, HVI_UCB_Uncertainty
+    from .selection import HVI, Uncertainty, Random, DGEMOSelect, MOEADSelect, HVI_UCB_Uncertainty, MaxCriterion, MinCriterion, MinCriterionA
 
     selection = {
         'hvi': HVI,
@@ -63,6 +66,9 @@ def get_selection(name):
         'dgemo': DGEMOSelect,
         'moead': MOEADSelect,
         'HVI_UCB_Uncertainty': HVI_UCB_Uncertainty,
+        'MaxCriterion': MaxCriterion,
+        'MinCriterion': MinCriterion,
+        'MinCriterionA': MinCriterionA,
     }
 
     selection['default'] = HVI
