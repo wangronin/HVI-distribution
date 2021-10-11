@@ -268,7 +268,7 @@ class HVI_UCB_M1(Acquisition):
         self.n0: int = 0
         self.tol: float = tol
 
-    def fit(self, X, Y) -> HVI_UCB:
+    def fit(self, X, Y) -> HVI_UCB_M1:
         self.n_sample = X.shape[0]
         self.pf = find_pareto_front(Y, return_index=False)
         self.rf = np.max(Y, axis=0) + 1
@@ -341,7 +341,7 @@ class HVI_UCB_M2(Acquisition):
         self.n0: int = 0
         self.tol: float = tol
 
-    def fit(self, X, Y) -> HVI_UCB:
+    def fit(self, X, Y) -> HVI_UCB_M2:
         self.n_sample = X.shape[0]
         self.pf = find_pareto_front(Y, return_index=False)
         self.rf = np.max(Y, axis=0) + 1
@@ -396,7 +396,7 @@ class HVI_UCB_M3(Acquisition):
         self.n0: int = 0
         self.tol: float = tol
 
-    def fit(self, X, Y) -> HVI_UCB:
+    def fit(self, X, Y) -> HVI_UCB_M3:
         self.n_sample = X.shape[0]
         self.pf = find_pareto_front(Y, return_index=False)
         # self.rf = np.max(Y, axis=0) + 1
@@ -423,7 +423,7 @@ class HVI_UCB_M3(Acquisition):
         # x = self.delta_hvi(hvi.max_hvi * 0.382)
         # x = self.delta_hvi(hvi.max_hvi * hvi.dominating_prob)
         # x = self.delta_hvi(hvi.max_hvi * 0.618)
-        x = self.delta_hvi(225*0.05)
+        x = self.delta_hvi(1*0.05)
         out =  -(1 - hvi.cdf(x))
 
         return [float(out), float(x)] # - CDF in non-dominate space, a 
@@ -431,12 +431,6 @@ class HVI_UCB_M3(Acquisition):
     def evaluate(self, val, calc_gradient=False, calc_hessian=False):
         self.val = val
         N = len(val["S"])  
-        
-        # # test
-        # F = np.array([[float(0)] * 3] * N)
-        # for i in range(N):
-        #     F[i] = self._evaluate_one(i)
-    
         F = np.atleast_2d(Parallel(n_jobs=7)(delayed(self._evaluate_one)(i) for i in range(N)))
         
         return F[:,0], F[:,1], None  # abs(CDF-CI), a 

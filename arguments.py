@@ -28,7 +28,7 @@ def get_general_args(args=None):
         "--ref-point",
         type=float,
         nargs="+",
-        default=[15, 15],
+        default=[0, 0],
         help="reference point for calculating hypervolume",
     )
     parser.add_argument(
