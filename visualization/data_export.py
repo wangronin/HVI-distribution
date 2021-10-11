@@ -88,7 +88,7 @@ class DataExport:
         
         Y_next_pred_mean = val['F']
         Y_next_pred_std = val['S']
-        acquisition, _, _ = self.optimizer.acquisition.evaluate(val)
+        acquisition, acquisition_b, beta = self.optimizer.acquisition.evaluate(val)
 
         pset = self.optimizer.status['pset']
         pfront = self.optimizer.status['pfront']
@@ -114,8 +114,12 @@ class DataExport:
             col_name = f'Uncertainty_f{i + 1}'
             d1[col_name] = Y_next_pred_std[:, i]
             col_name = f'Acquisition_f{i + 1}'
-            if type(self.optimizer.acquisition).__name__ in ['HVI_UCB','UCB']:
+            acquisition_func = type(self.optimizer.acquisition).__name__
+            if acquisition_func in ['UCB'] or acquisition_func.startswith('HVI_UCB'):
                 d1[col_name] = acquisition
+                if acquisition_func.startswith('HVI_UCB'): 
+                    d1['a'] = acquisition_b
+                    d1['beta'] = beta
             else:  
                 d1[col_name] = acquisition[:, i]
 
