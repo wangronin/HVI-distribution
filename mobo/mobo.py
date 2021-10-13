@@ -59,6 +59,7 @@ class MOBO:
             del self.solver.algo_kwargs["delta_s"]
             del self.solver.algo_kwargs["n_grid_sample"]
             del self.solver.algo_kwargs["n_obj"]
+            self.solver.algo_kwargs['sigma'] = self.solver.algo_kwargs['sigma'] * np.min(problem.xu - problem.xl)
             # del self.solver.algo_kwargs["pop_size"]
             # self.solver.algo_kwargs["n-gen"] = \
             #     self.solver.algo_kwargs["n-gen"] * self.solver.algo_kwargs["restarts"]
