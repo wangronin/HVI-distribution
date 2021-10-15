@@ -21,9 +21,7 @@ class GaussianProcess(SurrogateModel):
         self.gps = []
 
         def constrained_optimization(obj_func, initial_theta, bounds):
-            opt_res = minimize(
-                obj_func, initial_theta, method="L-BFGS-B", jac=True, bounds=bounds
-            )
+            opt_res = minimize(obj_func, initial_theta, method="L-BFGS-B", jac=True, bounds=bounds)
             """
             NOTE: Temporarily disable the checking below because this error sometimes occurs:
                 ConvergenceWarning: lbfgs failed to converge (status=2):
@@ -43,7 +41,7 @@ class GaussianProcess(SurrogateModel):
                 )
             else:
                 main_kernel = RBF(length_scale=np.ones(n_var), length_scale_bounds=(1e-10, 1e5))
-           
+
             # new version setting
             kernel = (
                 ConstantKernel(constant_value=1.0, constant_value_bounds=(1e-5, 1e3)) * main_kernel
@@ -63,8 +61,6 @@ class GaussianProcess(SurrogateModel):
             # ) * main_kernel + ConstantKernel(
             #     constant_value=1e-2, constant_value_bounds=(1e-8, 2)
             # )
-                
-           
 
             # gp = GaussianProcessRegressor(
             #     kernel=kernel,
@@ -78,19 +74,19 @@ class GaussianProcess(SurrogateModel):
         for i, gp in enumerate(self.gps):
             gp.fit(X, Y[:, i])
             setattr(gp, "_K_inv", None)
-            
+
     def evaluate(self, X, std=False, calc_gradient=False, calc_hessian=False):
         F, dF, hF = [], [], []  # mean
         S, dS, hS = [], [], []  # std
 
         for gp in self.gps:
             # mean
-            if std: 
-                y_mean, y_std = gp.predict(X,return_std = True)
+            if std:
+                y_mean, y_std = gp.predict(X, return_std=True)
                 S.append(y_std)
             else:
                 y_mean = gp.predict(X)
-            F.append(y_mean)  
+            F.append(y_mean)
         F = np.stack(F, axis=1)
         S = np.stack(S, axis=1) if std else None
         out = {"F": F, "dF": dF, "hF": hF, "S": S, "dS": dS, "hS": hS}
@@ -99,9 +95,8 @@ class GaussianProcess(SurrogateModel):
     # def evaluate(self, X, std=False, calc_gradient=False, calc_hessian=False):
     # #  This is the origianl GP in DGEMO package, having the following issues:
     # #     1. the prediction can not be converted back if "normalize_y=True"
-    # #     2. The prediciton std. is not exactly the same with GPR in sklearn. 
-      
-    
+    # #     2. The prediciton std. is not exactly the same with GPR in sklearn.
+
     #     F, dF, hF = [], [], []  # mean
     #     S, dS, hS = [], [], []  # std
 
