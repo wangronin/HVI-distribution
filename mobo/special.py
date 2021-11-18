@@ -34,9 +34,7 @@ def erf(x: float) -> float:
     a5 = 1.061405429
     x_ = x if x >= 0 else -1.0 * x
     t = 1 / (1 + p * x_)
-    out = 1 - (a1 * t + a2 * t ** 2 + a3 * t ** 3 + a4 * t ** 4 + a5 * t ** 5) * np.exp(
-        -1.0 * x_ ** 2
-    )
+    out = 1 - (a1 * t + a2 * t ** 2 + a3 * t ** 3 + a4 * t ** 4 + a5 * t ** 5) * np.exp(-1.0 * x_ ** 2)
     return out if x >= 0 else -1.0 * out
 
 
@@ -132,14 +130,6 @@ def cdf_product_of_truncated_gaussian(
 ):
     if normalizer == 0:
         return 0
-
-    # (L1, L2), (U1, U2) = lower, upper
-    # if L1 * U2 > U1 * L2:  # swap y_1' and y_2'
-    #     (L2, L1), (U2, U1) = lower, upper
-    #     mean = mean[1], mean[0]
-    #     sigma = sigma[1], sigma[0]
-
-    # l, u = max(L1, p / U2), min(U1, p / L2)
 
     L1, L2, U1, U2, m1, m2, s1, s2 = _check_parameters(lower, upper, mean, sigma)
     l, u = _get_integral_bound_cdf(p, L1, L2, U1, U2)
