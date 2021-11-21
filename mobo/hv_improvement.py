@@ -123,34 +123,6 @@ def _gamma(cells_volume, transformed_lb, N, i: int, j: int) -> float:
     return v - np.prod(transformed_lb[i, j])
 
 
-@njit
-def _make_index(mu, sigma, cells_lb, cells_ub) -> List[Tuple[int, int]]:
-    N = len(cells_lb)
-    n_sigma = 3
-    points_y1 = np.append(cells_lb[:, 0, 0], cells_ub[:, 0, 0][-1])
-    points_y2 = np.append(cells_lb[0, :, 1], cells_ub[0, :, 1][-1])
-    points_y1[0] = -np.inf
-    points_y2[0] = -np.inf
-    points_y1[-1] = np.inf
-    points_y2[-1] = np.inf
-
-    n_y1 = len(points_y1) - 1
-    n_y2 = len(points_y2) - 1
-
-    i_start = [(i) for i in range(n_y1) if points_y1[i] <= mu[0] - n_sigma * sigma[0] < points_y1[i + 1]]
-    i_end = [(i + 1) for i in range(n_y1) if points_y1[i] <= mu[0] + n_sigma * sigma[0] < points_y1[i + 1]]
-    j_start = [(i) for i in range(n_y2) if points_y2[i] <= mu[1] - n_sigma * sigma[1] < points_y2[i + 1]]
-    j_end = [(i + 1) for i in range(n_y2) if points_y2[i] <= mu[1] + n_sigma * sigma[1] < points_y2[i + 1]]
-
-    ij = [
-        (i, j)
-        for i in range(i_start[0], i_end[0] + 1)
-        for j in range(j_start[0], j_end[0] + 1)
-        if i + j < 2 * N and i < N and j < N
-    ]
-    return ij
-
-
 class HypervolumeImprovement:
     r"""Class to computer the Hypervolume Improvement and the distribution thereof"""
 
@@ -177,10 +149,53 @@ class HypervolumeImprovement:
             self.transformed_ub,
             self.normalizer,
         ) = _set_cells(self.pareto_front, self.N, self.dim, self.mu, self.sigma)
-        self.ij = _make_index(self.cells_lb, self.cells_ub, self.mu, self.sigma)
+        # self.ij = _make_index(self.cells_lb, self.cells_ub, self.mu, self.sigma)
+        self.ij = self._make_index()
         self.prob_in_cell, self.dominating_prob = _compute_probability_in_cell(
             self.N, self.cells_lb, self.cells_ub, self.mu, self.sigma
         )
+
+    def _make_index(self) -> List[Tuple[int, int]]:
+        n_sigma = 3
+        points_y1 = np.append(self.cells_lb[:, 0, 0], self.cells_ub[:, 0, 0][-1])
+        points_y2 = np.append(self.cells_lb[0, :, 1], self.cells_ub[0, :, 1][-1])
+        points_y1[0] = -np.inf
+        points_y2[0] = -np.inf
+        points_y1[-1] = np.inf
+        points_y2[-1] = np.inf
+
+        n_y1 = len(points_y1) - 1
+        n_y2 = len(points_y2) - 1
+
+        i_start = [
+            (i)
+            for i in range(n_y1)
+            if points_y1[i] <= self.mu[0] - n_sigma * self.sigma[0] < points_y1[i + 1]
+        ]
+        i_end = [
+            (i + 1)
+            for i in range(n_y1)
+            if points_y1[i] <= self.mu[0] + n_sigma * self.sigma[0] < points_y1[i + 1]
+        ]
+        j_start = [
+            (i)
+            for i in range(n_y2)
+            if points_y2[i] <= self.mu[1] - n_sigma * self.sigma[1] < points_y2[i + 1]
+        ]
+        j_end = [
+            (i + 1)
+            for i in range(n_y2)
+            if points_y2[i] <= self.mu[1] + n_sigma * self.sigma[1] < points_y2[i + 1]
+        ]
+
+        ij = [
+            (i, j)
+            for i in range(i_start[0], i_end[0] + 1)
+            for j in range(j_start[0], j_end[0] + 1)
+            if i + j < 2 * self.N and i < self.N and j < self.N
+        ]
+        # ij = [(i, j) for i in range(self.N) for j in range(self.N - i)]
+        return ij
 
     @property
     def min_hvi(self):
@@ -319,7 +334,6 @@ class HypervolumeImprovement:
         n_sample: int = 1e5,
         eval_sd: bool = False,
         n_boostrap: bool = 1e2,
-        include_negative: bool = False,
     ) -> np.ndarray:
         """Monte-Carlo approximation to the CDF of hypervolume
         Parameters
@@ -340,25 +354,31 @@ class HypervolumeImprovement:
         """
         if isinstance(v, (int, float)):
             v = [v]
-        _hv = hv(self.pareto_front.tolist(), self.r)
-        sample = self.mu + self.sigma * np.random.randn(int(n_sample), self.dim)
-        fun = lambda x: hv(np.vstack([self.pareto_front.tolist(), x]), self.r)
-        mc_fun = lambda v, delta: np.sum(delta <= v) / (1.0 * n_sample)
-        delta = np.array(list(map(fun, sample))) - _hv
-
-        if include_negative:
-            neg_idx = delta == 0
-            idx = ~np.all(np.expand_dims(self.pareto_front, 1) - sample[neg_idx] < 0, axis=2)
-            delta[neg_idx] = [
-                hv(np.vstack([self.pareto_front[idx[:, i]], x]), self.r) - _hv
-                for i, x in enumerate(sample[neg_idx])
-            ]
-        estimate = np.array([mc_fun(_, delta) for _ in v])
+        X = self.mu + self.sigma * np.random.randn(int(n_sample), self.dim)
+        # find the indices of cell for each sample point
+        idx = np.argwhere(
+            np.bitwise_and(
+                np.all(X - np.expand_dims(self.cells_lb, 2) > 0, axis=3),
+                np.all(np.expand_dims(self.cells_ub, 2) - X >= 0, axis=3),
+            )
+        )
+        order = np.argsort(idx[:, 2])
+        idx = idx[order, 0:2]
+        # hypervolume improvment function
+        hvi_fun = lambda x, i, j: (self.pareto_front[self.N - j, 0] - x[0]) * (
+            self.pareto_front[i, 1] - x[1]
+        ) + _gamma(self.cells_volume, self.transformed_lb, self.N, i, j)
+        # empirical CDF
+        ecdf_fun = lambda v, delta: np.sum(delta <= v) / (1.0 * n_sample)
+        # compute a sample of hypervolume improvement
+        hvi_sample = [hvi_fun(X[k], i, j) * (1 if i + j < self.N else -1) for k, (i, j) in enumerate(idx)]
+        ecdf = np.array([ecdf_fun(_, hvi_sample) for _ in v])
         if eval_sd:
-            bs_sample = np.random.choice(delta, size=(int(n_boostrap), len(delta)))
-            v = np.array([[mc_fun(_, s) for _ in v] for s in bs_sample])
+            # boostrapping
+            bs_sample = np.random.choice(hvi_sample, size=(int(n_boostrap), len(hvi_sample)))
+            v = np.array([[ecdf_fun(_, s) for _ in v] for s in bs_sample])
             sd = v.std(axis=0)
-        return (estimate, sd) if eval_sd else estimate
+        return (ecdf, sd) if eval_sd else ecdf
 
     def __internal_loop_over_cells(
         self,

@@ -7,15 +7,14 @@ r = np.array([12, 12])
 # Pareto-front approximation set
 pf = np.array([[3, 4], [1, 5], [5, 1]])
 
-mu = np.array([5, 5])  # mean of f1 and f2
-sigma = np.array([0.2, 0.2])  # standard deviation
+mu = np.array([3, 4])  # mean of f1 and f2
+sigma = np.array([2, 2])  # standard deviation
 
 # avals = 10 ** np.linspace(-5, np.log10(10), 100)
 avals = np.linspace(-10, 10, 100)
 hvi = HypervolumeImprovement(pf, r, mu, sigma)
-
 rst_all_ex = hvi.cdf(avals)
-rst_all_pdf = hvi.pdf(avals)
+# rst_all_pdf = hvi.pdf(avals)
 print(rst_all_ex)
 
 rst_all_mc, sd = hvi.cdf_monte_carlo(avals, n_sample=1e5, eval_sd=True)
