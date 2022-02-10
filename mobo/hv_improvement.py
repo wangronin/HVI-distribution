@@ -132,12 +132,14 @@ class HypervolumeImprovement:
         r: Union[List, np.ndarray],
         mu: List[float],
         sigma: List[float],
+        extreme_point_impr_prob: float = None,
     ):
         self.mu = np.array(mu)
         self.sigma = np.array(sigma)
         assert len(self.mu) == len(self.sigma)
         # 6-sigma corresponds to ~1.973175e-09 significance
         self.neg_inf: List[float] = self.mu - 6.0 * self.sigma
+        self._extreme_point_impr_prob = extreme_point_impr_prob
         self.r = r
         self.pareto_front = pareto_front
         (
@@ -213,7 +215,8 @@ class HypervolumeImprovement:
     def r(self, r):
         self.dim = len(r)
         # NOTE: this is necessary since we are also computing the probablity of each cell in the negative part
-        self._r = np.maximum(np.asarray(r), self.mu + 5.0 * self.sigma)
+        increment = np.maximum(self.mu + 3.0 * self.sigma - np.asarray(r), 0)
+        self._r = r + np.tanh(self._extreme_point_impr_prob) * increment
 
     @property
     def pareto_front(self):
