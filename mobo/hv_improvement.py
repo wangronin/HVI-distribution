@@ -216,7 +216,11 @@ class HypervolumeImprovement:
         self.dim = len(r)
         # NOTE: this is necessary since we are also computing the probablity of each cell in the negative part
         increment = np.maximum(self.mu + 3.0 * self.sigma - np.asarray(r), 0)
-        self._r = r + np.tanh(self._extreme_point_impr_prob) * increment
+        self._r = (
+            r + np.tanh(self._extreme_point_impr_prob) * increment
+            if self._extreme_point_impr_prob is not None
+            else r
+        )
 
     @property
     def pareto_front(self):

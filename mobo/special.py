@@ -116,6 +116,11 @@ def _term1(p, L1, L2, U2, m1, m2, s1, s2):
 
 
 @njit
+def _term1_new(L1, L2, U2, m1, m2, s1, s2, alpha, beta):
+    return D2(L1, alpha, m1, s1) * pnorm(U2, m2, s2) + D2(beta, L1, m1, s1) * pnorm(L2, m2, s2)
+
+
+@njit
 def _term2(L2, m1, m2, s1, s2, l, u):
     return D2(l, u, m1, s1) * pnorm(L2, m2, s2)
 
@@ -134,8 +139,10 @@ def cdf_product_of_truncated_gaussian(
     L1, L2, U1, U2, m1, m2, s1, s2 = _check_parameters(lower, upper, mean, sigma)
     l, u = _get_integral_bound_cdf(p, L1, L2, U1, U2)
 
-    term1 = _term1(p, L1, L2, U2, m1, m2, s1, s2)
-    term2 = _term2(L2, m1, m2, s1, s2, l, u)
+    # term1 = _term1(p, L1, L2, U2, m1, m2, s1, s2)
+    # term2 = _term2(L2, m1, m2, s1, s2, l, u)
+    # NOTE: this new implementation is slighly faster
+    term1 = _term1_new(L1, L2, U2, m1, m2, s1, s2, l, u)
     term3 = quad(
         integrand_cdf,
         l,
@@ -144,7 +151,8 @@ def cdf_product_of_truncated_gaussian(
         epsabs=1e-2,
         epsrel=1e-2,
     )[0]
-    return (term1 - term2 + term3) / normalizer
+    return (term1 + term3) / normalizer
+    # return (term1 - term2 + term3) / normalizer
 
 
 @njit
