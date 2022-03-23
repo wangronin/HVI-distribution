@@ -278,7 +278,7 @@ class HVI_UCB(Acquisition):
         hvi = HypervolumeImprovement(self.pf, self.rf, mu, sigma)
         # probability for the quantile
         beta = self.get_beta()
-        if beta <= 1 - hvi.dominating_prob:
+        if beta <= 1 - hvi.prob_in_ndom:
             return 1, 0, beta
         func = lambda x: hvi.cdf(x) - beta
         # sample 100 evenly-spaced points in log-10 scale to approximate the quantile
@@ -344,8 +344,8 @@ class HVI_UCB_M1(Acquisition):
         hvi = HypervolumeImprovement(self.pf, self.rf, mu, sigma)
         # probability for the quantile
         beta = self.get_beta()
-        if beta <= 1 - hvi.dominating_prob:
-            return 1, -hvi.dominating_prob, beta
+        if beta <= 1 - hvi.prob_in_ndom:
+            return 1, -hvi.prob_in_ndom, beta
         func = lambda x: hvi.cdf(x) - beta
         # sample 100 evenly-spaced points in log-10 scale to approximate the quantile
         x = 10 ** np.linspace(-1, np.log10(hvi.max_hvi), 100)
@@ -404,7 +404,7 @@ class HVI_UCB_M2(Acquisition):
         hvi = HypervolumeImprovement(self.pf, self.rf, mu, sigma)
         # probability for the quantile
         beta = self.get_beta()
-        if beta <= 1 - hvi.dominating_prob:
+        if beta <= 1 - hvi.prob_in_ndom:
             return 1, 0, beta
         func = lambda x: hvi.cdf(x) - beta
         # sample 100 evenly-spaced points in log-10 scale to approximate the quantile

@@ -51,7 +51,7 @@ def _set_cells(pareto_front: np.ndarray, N: int, dim: int, mu: List[float], sigm
                     -1 * transformed_ub[i, j],
                     -1 * transformed_lb[i, j],
                 )
-                transformed_lb[i, j] = [max(0, _) for _ in transformed_lb[i, j]]
+                # transformed_lb[i, j] = [max(0, _) for _ in transformed_lb[i, j]]
                 mu_prime[i, j] *= -1
 
             normalizer[i, j] = D2(
@@ -102,14 +102,14 @@ def _compute_probability_in_cell(
     ij = [(i, j) for i in range(N) for j in range(N)]
     # the probability of the Gaussian objective point lying in each cell
     prob_in_cell = np.zeros((N, N, 1))
-    dominating_prob = 0
+    prob_in_ndom = 0
     for i, j in ij:
         p1 = D2(cells_lb[i, j][0], cells_ub[i, j][0], mu[0], sigma[0])
         p2 = D2(cells_lb[i, j][1], cells_ub[i, j][1], mu[1], sigma[1])
         prob_in_cell[i, j, ...] = p1 * p2
     # probability in the dominating region w.r.t. the attainment boundary
-    dominating_prob = np.sum(np.tril(np.rot90(prob_in_cell)))
-    return prob_in_cell, dominating_prob
+    prob_in_ndom = np.sum(np.tril(np.rot90(prob_in_cell[..., 0])))
+    return prob_in_cell, prob_in_ndom
 
 
 @njit
@@ -151,9 +151,8 @@ class HypervolumeImprovement:
             self.transformed_ub,
             self.normalizer,
         ) = _set_cells(self.pareto_front, self.N, self.dim, self.mu, self.sigma)
-        # self.ij = _make_index(self.cells_lb, self.cells_ub, self.mu, self.sigma)
         self.ij = self._make_index()
-        self.prob_in_cell, self.dominating_prob = _compute_probability_in_cell(
+        self.prob_in_cell, self.prob_in_ndom = _compute_probability_in_cell(
             self.N, self.cells_lb, self.cells_ub, self.mu, self.sigma
         )
 
@@ -215,11 +214,11 @@ class HypervolumeImprovement:
     def r(self, r):
         self.dim = len(r)
         # NOTE: this is necessary since we are also computing the probablity of each cell in the negative part
-        increment = np.maximum(self.mu + 3.0 * self.sigma - np.asarray(r), 0)
+        increment = np.maximum(self.mu + 6.0 * self.sigma - np.asarray(r), 0)
         self._r = (
             r + np.tanh(self._extreme_point_impr_prob) * increment
             if self._extreme_point_impr_prob is not None
-            else r
+            else np.maximum(r, increment + r)
         )
 
     @property
@@ -252,6 +251,11 @@ class HypervolumeImprovement:
         np.ndarray
             the conditional probability density at volume `v`
         """
+        v = v.copy()
+        if i + j >= self.N:  # for a negative cell
+            v[v > 0] = 0
+            v = np.abs(v)
+
         par = (
             self.mu_prime[i, j],
             self.sigma,
@@ -274,15 +278,7 @@ class HypervolumeImprovement:
             the probability density at volume `v`
         """
         v = self._check_input(v)
-        idx = v == 0
-        res = self.__internal_loop_over_cells(v, self.pdf_conditional)
-        # NOTE: the density at zero volume is the Dirac delta
-        if np.any(idx):
-            res = res.astype(object)
-            _ = res[idx]
-            prob = 1 - self.dominating_prob
-            res[idx] = f"{prob} * delta" if _ == 0 else f"{prob} * delta + {_}"
-        return res
+        return self.__internal_loop_over_cells(v, self.pdf_conditional)
 
     def cdf_conditional(self, values: np.ndarray, i: int, j: int) -> np.ndarray:
         """Conditional CDF of hypervolume when restricting the objective point in the cell (i, j)
@@ -317,7 +313,6 @@ class HypervolumeImprovement:
         out[a >= U] = 1
         idx = np.bitwise_and(a > L, a < U)
         out[idx] = [cdf_product_of_truncated_gaussian(p, *args) for p in a[idx]]
-
         if i + j >= self.N:
             out = 1 - out
         return out
@@ -333,6 +328,7 @@ class HypervolumeImprovement:
         np.ndarray
             the cumulative probability at volume `v`
         """
+        v = self._check_input(v)
         return self.__internal_loop_over_cells(v, self.cdf_conditional)
 
     def cdf_monte_carlo(
@@ -371,7 +367,7 @@ class HypervolumeImprovement:
         )
         order = np.argsort(idx[:, 2])
         idx = idx[order, 0:2]
-        # hypervolume improvment function
+        # hypervolume improvement function
         hvi_fun = lambda x, i, j: (self.pareto_front[self.N - j, 0] - x[0]) * (
             self.pareto_front[i, 1] - x[1]
         ) + _gamma(self.cells_volume, self.transformed_lb, self.N, i, j)
@@ -415,5 +411,4 @@ class HypervolumeImprovement:
     def _check_input(self, v: Union[float, List[float], np.ndarray]) -> np.ndarray:
         if isinstance(v, (int, float)):
             v = [v]
-        v = np.array(v)
-        return v
+        return np.array(v)

@@ -2,12 +2,12 @@ import os
 
 os.environ["OMP_NUM_THREADS"] = "1"  # speed up
 import numpy as np
-
-from arguments import get_args
 from mobo.algorithms import get_algorithm
 from problems.common import build_problem
-from utils import save_args, setup_logger
 from visualization.data_export import DataExport
+
+from experiments.arguments import get_args
+from experiments.utils import save_args, setup_logger
 
 """
 Main entry for MOBO execution

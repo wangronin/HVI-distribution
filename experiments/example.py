@@ -6,11 +6,11 @@ from typing import Tuple
 import autograd.numpy as anp
 import numpy as np
 from bayes_optim.search_space import Real, SearchSpace
-
-from arguments import get_args
 from mobo.algorithms import get_algorithm
-from utils import save_args, setup_logger
 from visualization.data_export import DataExport
+
+from experiments.arguments import get_args
+from experiments.utils import save_args, setup_logger
 
 
 class NLPObjective:
@@ -80,21 +80,22 @@ class NLPObjective:
 def experiment():
     # get the arguments from a command line
     parser = ArgumentParser()
-    parser.add_argument('--problem', type=str, nargs='+', required=True, help='problems to test')
-    parser.add_argument('--algo', type=str, nargs='+', required=True, help='algorithms to test')
-    parser.add_argument('--n-seed', type=int, default=10, help='number of different seeds')
-    parser.add_argument('--n-process', type=int, default=cpu_count(),
-                        help='number of parallel optimization executions')
-    parser.add_argument('--subfolder', type=str, default='default', help='subfolder of result')
-    parser.add_argument('--exp-name', type=str, default=None, help='custom experiment name')
-    parser.add_argument('--batch-size', type=int, default=20)
-    parser.add_argument('--n-iter', type=int, default=20)
-    parser.add_argument('--n-var', type=int, default=6)
-    parser.add_argument('--n-obj', type=int, default=2)
-    parser.add_argument('--ref-point', type=float, default=None)
-    parser.add_argument('--seed', type=int, default=10)
-    parser.add_argument('--log_to_file', type=bool, default=False)
-    parser.add_argument('--n_init_sample', type=int, default=30)
+    parser.add_argument("--problem", type=str, nargs="+", required=True, help="problems to test")
+    parser.add_argument("--algo", type=str, nargs="+", required=True, help="algorithms to test")
+    parser.add_argument("--n-seed", type=int, default=10, help="number of different seeds")
+    parser.add_argument(
+        "--n-process", type=int, default=cpu_count(), help="number of parallel optimization executions"
+    )
+    parser.add_argument("--subfolder", type=str, default="default", help="subfolder of result")
+    parser.add_argument("--exp-name", type=str, default=None, help="custom experiment name")
+    parser.add_argument("--batch-size", type=int, default=20)
+    parser.add_argument("--n-iter", type=int, default=20)
+    parser.add_argument("--n-var", type=int, default=6)
+    parser.add_argument("--n-obj", type=int, default=2)
+    parser.add_argument("--ref-point", type=float, default=None)
+    parser.add_argument("--seed", type=int, default=10)
+    parser.add_argument("--log_to_file", type=bool, default=False)
+    parser.add_argument("--n_init_sample", type=int, default=30)
     args = parser.parse_args()
 
     _, framework_args = get_args()

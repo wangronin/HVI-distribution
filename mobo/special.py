@@ -148,8 +148,8 @@ def cdf_product_of_truncated_gaussian(
         l,
         u,
         args=(p, m1, m2, s1, s2),
-        epsabs=1e-2,
-        epsrel=1e-2,
+        epsabs=1e-8,
+        epsrel=1e-8,
     )[0]
     return (term1 + term3) / normalizer
     # return (term1 - term2 + term3) / normalizer
