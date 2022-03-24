@@ -1,5 +1,6 @@
+import pickle
+
 import matplotlib.pyplot as plt
-import numpy as np
 from pylab import boxplot, setp
 
 plt.style.use("ggplot")
@@ -13,11 +14,14 @@ def setBoxColors(bp, color):
     setp(bp["medians"], color=color)
 
 
-x = [10, 20, 40, 80]
+with open("data.pkl", "rb") as f:
+    data = pickle.load(f)
+
+x = data.keys()
 fig = plt.figure()
 
-for i, vx in enumerate(x):
-    data = np.load(f"./data{i+1}.npy")
+for i, k in enumerate(x):
+    X = data[k]
     bp1 = boxplot([data[0, :]], positions=[i * 3 + 1], widths=0.6, sym="+")
     bp2 = boxplot([data[1, :]], positions=[i * 3 + 2], widths=0.6, sym="+")
     setBoxColors(bp1, "red")
