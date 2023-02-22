@@ -55,151 +55,8 @@ class Acquisition(ABC):
         """
         pass
 
-
-class IdentityFunc(Acquisition):
-    """
-    Identity function
-    """
-
-    def evaluate(self, val, calc_gradient=False, calc_hessian=False):
-        F, dF, hF = val["F"], val["dF"], val["hF"]
-        return F, dF, hF
-
-
-class PI(Acquisition):
-    """
-    Probability of Improvement
-    """
-
-    requires_std = True
-
-    def __init__(self, *args, **kwargs):
-        self.y_min = None
-
-    def fit(self, X, Y):
-        self.y_min = np.min(Y, axis=0)
-
-    def evaluate(self, val, calc_gradient=False, calc_hessian=False):
-        y_mean, y_std = val["F"], val["S"]
-        z = safe_divide(self.y_min - y_mean, y_std)
-        cdf_z = norm.cdf(z)
-        F = -cdf_z
-
-        dF, hF = None, None
-        dy_mean, hy_mean, dy_std, hy_std = val["dF"], val["hF"], val["dS"], val["hS"]
-
-        if calc_gradient or calc_hessian:
-            dz_y_mean = -safe_divide(1, y_std)
-            dz_y_std = -safe_divide(self.y_min - y_mean, y_std ** 2)
-
-            pdf_z = norm.pdf(z)
-            dF_y_mean = -pdf_z * dz_y_mean
-            dF_y_std = -pdf_z * dz_y_std
-
-            dF_y_mean, dF_y_std = expand(dF_y_mean), expand(dF_y_std)
-
-        if calc_gradient:
-            dF = dF_y_mean * dy_mean + dF_y_std * dy_std
-
-        if calc_hessian:
-            dpdf_z_z = -z * pdf_z
-            dpdf_z_y_mean = dpdf_z_z * dz_y_mean
-            dpdf_z_y_std = dpdf_z_z * dz_y_std
-            hz_y_std = safe_divide(self.y_min - y_mean, y_std ** 3)
-
-            hF_y_mean = -dpdf_z_y_mean * dz_y_mean
-            hF_y_std = -dpdf_z_y_std * dz_y_std - pdf_z * hz_y_std
-
-            dy_mean, dy_std = expand(dy_mean), expand(dy_std)
-            dy_mean_T, dy_std_T = dy_mean.transpose(0, 1, 3, 2), dy_std.transpose(0, 1, 3, 2)
-            dF_y_mean, dF_y_std = expand(dF_y_mean), expand(dF_y_std)
-            hF_y_mean, hF_y_std = expand(hF_y_mean, (-1, -2)), expand(hF_y_std, (-1, -2))
-
-            hF = (
-                dF_y_mean * hy_mean
-                + dF_y_std * hy_std
-                + hF_y_mean * dy_mean * dy_mean_T
-                + hF_y_std * dy_std * dy_std_T
-            )
-
-        return F, dF, hF
-
-
-class EI(Acquisition):
-    """
-    Expected Improvement
-    """
-
-    requires_std = True
-
-    def __init__(self, *args, **kwargs):
-        self.y_min = None
-
-    def fit(self, X, Y):
-        self.y_min = np.min(Y, axis=0)
-
-    def evaluate(self, val, calc_gradient=False, calc_hessian=False):
-        y_mean, y_std = val["F"], val["S"]
-        z = safe_divide(self.y_min - y_mean, y_std)
-        pdf_z = norm.pdf(z)
-        cdf_z = norm.cdf(z)
-        F = -(self.y_min - y_mean) * cdf_z - y_std * pdf_z
-
-        dF, hF = None, None
-        dy_mean, hy_mean, dy_std, hy_std = val["dF"], val["hF"], val["dS"], val["hS"]
-
-        if calc_gradient or calc_hessian:
-            dz_y_mean = -safe_divide(1, y_std)
-            dz_y_std = -safe_divide(self.y_min - y_mean, y_std ** 2)
-            dpdf_z_z = -z * pdf_z
-
-            dF_y_mean = cdf_z - (self.y_min - y_mean) * pdf_z * dz_y_mean - y_std * dpdf_z_z * dz_y_mean
-            dF_y_std = (self.y_min - y_mean) * pdf_z * dz_y_std + pdf_z + y_std * dpdf_z_z * dz_y_std
-
-            dF_y_mean, dF_y_std = expand(dF_y_mean), expand(dF_y_std)
-
-        if calc_gradient:
-            dF = dF_y_mean * dy_mean + dF_y_std * dy_std
-
-        if calc_hessian:
-            dpdf_z_y_mean = dpdf_z_z * dz_y_mean
-            dpdf_z_y_std = dpdf_z_z * dz_y_std
-            ddpdf_z_z_y_mean = -z * dpdf_z_y_mean - dz_y_mean * pdf_z
-            ddpdf_z_z_y_std = -z * dpdf_z_y_std - dz_y_std * pdf_z
-            ddz_y_std_y_std = safe_divide(self.y_min - y_mean, y_std ** 3)
-
-            hF_y_mean = (
-                -pdf_z * dz_y_mean
-                - dz_y_mean * pdf_z
-                + (self.y_min - y_mean) * dpdf_z_z * dz_y_mean ** 2
-                + y_std * dz_y_mean * ddpdf_z_z_y_mean
-            )
-            hF_y_std = (
-                (self.y_min - y_mean) * (dz_y_std * dpdf_z_y_std + pdf_z * ddz_y_std_y_std)
-                + dpdf_z_y_std
-                + dpdf_z_z * dz_y_std
-                + y_std * dz_y_std * ddpdf_z_z_y_std
-                + y_std * dpdf_z_z * ddz_y_std_y_std
-            )
-
-            dy_mean, dy_std = expand(dy_mean), expand(dy_std)
-            dy_mean_T, dy_std_T = dy_mean.transpose(0, 1, 3, 2), dy_std.transpose(0, 1, 3, 2)
-            dF_y_mean, dF_y_std = expand(dF_y_mean), expand(dF_y_std)
-            hF_y_mean, hF_y_std = expand(hF_y_mean, (-1, -2)), expand(hF_y_std, (-1, -2))
-
-            hF = (
-                dF_y_mean * hy_mean
-                + dF_y_std * hy_std
-                + hF_y_mean * dy_mean * dy_mean_T
-                + hF_y_std * dy_std * dy_std_T
-            )
-
-        return F, dF, hF
-
-
-class UCB(Acquisition):
+class NUCB(Acquisition):
     """Naive Upper Confidence Bound"""
-
     requires_std = True
 
     def __init__(self, *args, **kwargs):
@@ -208,7 +65,8 @@ class UCB(Acquisition):
     def fit(self, X, Y):
         self.n_sample = X.shape[0]
         self.pf = find_pareto_front(Y, return_index=False)
-        self.rf = np.max(Y, axis=0) + 1
+        if (self.rf is 'dynamic'):
+            self.rf = np.max(self.pf, axis=0) + 1
 
     def evaluate(self, val, calc_gradient=False, calc_hessian=False):
         lamda = np.sqrt(np.log(self.n_sample) / self.n_sample)
@@ -221,7 +79,7 @@ class UCB(Acquisition):
 
         FF = np.array([float(0)] * len(F))
         for i in range(0, len(F)):
-            FF[i] = hv_current - hv.calc(np.vstack([self.pf, F[i]]))
+            FF[i] = hv.calc(np.vstack([self.pf, F[i]])) - hv_current
 
         dF, hF = None, None
         dy_mean, hy_mean, dy_std, hy_std = val["dF"], val["hF"], val["dS"], val["hS"]
@@ -250,12 +108,11 @@ class UCB(Acquisition):
                 + hF_y_std * dy_std * dy_std_T
             )
 
-        return FF, dF, hF
+        return -FF, dF, hF
 
-
-class HVI_UCB(Acquisition):
+class UCB(Acquisition):
     r"""Upper Confidence Bound of the hypervolume improvement"""
-    # search for the individual x of which cdf value is nearest to the defined CI (beta)
+    # search for the individual x of which hvi is largest and the cdf value is nearest to the defined CI (beta)
     requires_std = True
 
     def __init__(self, tol: float = 1e-1, **kwargs):
@@ -264,11 +121,11 @@ class HVI_UCB(Acquisition):
         self.n0: int = 0
         self.tol: float = tol
 
-    def fit(self, X, Y) -> HVI_UCB_M2:
+    def fit(self, X, Y) -> UCB:
         self.n_sample = X.shape[0]
         self.pf = find_pareto_front(Y, return_index=False)
-        self.rf = np.max(Y, axis=0) + 1
-        return self
+        if (self.rf is 'dynamic'):
+            self.rf = np.max(self.pf, axis=0) + 1
 
     def get_beta(self) -> float:
         t = self.n_sample - self.n0 + 1
@@ -277,281 +134,38 @@ class HVI_UCB(Acquisition):
     def _evaluate_one(self, i) -> Tuple[float, float]:
         mu, sigma = self.val["F"][i, :], self.val["S"][i, :]
         hvi = HypervolumeImprovement(self.pf, self.rf, mu, sigma)
-        # probability for the quantile
-        beta = self.get_beta()
-        if beta <= 1 - hvi.dominating_prob:
-            return 1, 0, beta
-        func = lambda x: hvi.cdf(x) - beta
-        # sample 100 evenly-spaced points in log-10 scale to approximate the quantile
-        x = 10 ** np.linspace(-1, np.log10(hvi.max_hvi), 100)
-        v = np.abs(func(x))
-        idx = np.argmin(v)
-        out = x[idx]
-        # if the precision of above approximation is not enough
-        if not np.isclose(v[idx], 0, rtol=self.tol, atol=self.tol):
-            # refine the quantile value
-            out_ = newton(func, x0=out, fprime=hvi.pdf, tol=self.tol, maxiter=20, disp=False)
-            if out > 0:
-                out = out_
-        return [float(v[idx]), float(out), float(beta)]  # abs(CDF-CI), a
-
-    def evaluate(self, val, calc_gradient=False, calc_hessian=False):
-        self.val = val
-        N = len(val["S"])
-        F = np.atleast_2d(Parallel(n_jobs=7)(delayed(self._evaluate_one)(i) for i in range(N)))
-        return -F[:, 1], F[:, 0], F[:, 2]  # a, abs(CDF-CI), none
-
-
-class HVI_UCB_M1(Acquisition):
-    r"""Upper Confidence Bound of the hypervolume improvement
-
-    TODO: add the reference to our paper once it is accepted
-    """
-    # search for the individual x of which cdf value is nearest to the defined CI (beta)
-    requires_std = True
-
-    def __init__(self, tol: float = 1e-3, **kwargs):
-        super().__init__(**kwargs)
-        self.n_sample: int = 0
-        self.n0: int = 0
-        self.tol: float = tol
-
-    def fit(self, X, Y) -> HVI_UCB_M1:
-        self.n_sample = X.shape[0]
-        self.pf = find_pareto_front(Y, return_index=False)
-        self.rf = np.max(Y, axis=0) + 1
-        return self
-
-    def get_beta(self) -> float:
-        t = self.n_sample - self.n0 + 1
-        return norm.cdf(0.55 * np.sqrt(np.log(t * 25)))
-        # return 1 - (1 - min_prob) / n ** 1.5
-        # c = (1 - min_prob) / np.sqrt(np.log(2) / 2)
-        # return 1 - c * np.sqrt(np.log(t + 1) / (t + 1))
-
-        # if n < 2:
-        #     return 0.1 + 0.9 * n / 170
-        # else:
-        #     return 1 - (1 - min_prob) / (n+1) ** 1.5
-
-        # c = (1 - min_prob) / np.sqrt(np.log(2) / 2)
-        # return 1 - c * np.sqrt(np.log(n + 1) / (n + 1))
-
-        # return 0.01 + 0.99 * n / 170
-
-    def _evaluate_one(self, i) -> Tuple[float, float]:
-
-        mu, sigma = self.val["F"][i, :], self.val["S"][i, :]
-        hvi = HypervolumeImprovement(self.pf, self.rf, mu, sigma)
-        # probability for the quantile
-        beta = self.get_beta()
-        if beta <= 1 - hvi.dominating_prob:
-            return 1, -hvi.dominating_prob, beta
-        func = lambda x: hvi.cdf(x) - beta
-        # sample 100 evenly-spaced points in log-10 scale to approximate the quantile
-        x = 10 ** np.linspace(-1, np.log10(hvi.max_hvi), 100)
-        v = np.abs(func(x))
-        idx = np.argmin(v)
-        out = x[idx]
-        # if the precision of above approximation is not enough
-        if not np.isclose(v[idx], 0, rtol=self.tol, atol=self.tol):
-            # refine the quantile value
-            out_ = newton(func, x0=out, fprime=hvi.pdf, tol=self.tol, maxiter=20, disp=False)
-            if out > 0:
-                out = out_
-        return [float(v[idx]), float(out), float(beta)]  # abs(CDF-CI), a
-
-    def evaluate(self, val, calc_gradient=False, calc_hessian=False):
-        self.val = val
-        N = len(val["S"])
-
-        # # test
-        # F = np.array([[float(0)] * 3] * N)
-        # for i in range(N):
-        #     F[i] = self._evaluate_one(i)
         
-        F = np.atleast_2d(Parallel(n_jobs=7)(delayed(self._evaluate_one)(i) for i in range(N)))
-
-        return F[:, 0], F[:, 1], F[:, 2]  # abs(CDF-CI), a, beta
-
-
-class HVI_UCB_M2(Acquisition):
-    r"""Upper Confidence Bound of the hypervolume improvement
-
-    TODO: add the reference to our paper once it is accepted
-    """
-    # search for the individual x of which cdf value is nearest to the defined CI (beta)
-    requires_std = True
-
-    def __init__(self, tol: float = 1e-1, **kwargs):
-        super().__init__(**kwargs)
-        self.n_sample: int = 0
-        self.n0: int = 0
-        self.tol: float = tol
-
-    def fit(self, X, Y) -> HVI_UCB_M2:
-        self.n_sample = X.shape[0]
-        self.pf = find_pareto_front(Y, return_index=False)
-        self.rf = np.max(Y, axis=0) + 1
-        return self
-
-    def get_beta(self) -> float:
-        t = self.n_sample - self.n0 + 1
-        return norm.cdf(0.55 * np.sqrt(np.log(t * 25)))
-
-    def _evaluate_one(self, i) -> Tuple[float, float]:
-
-        mu, sigma = self.val["F"][i, :], self.val["S"][i, :]
-        hvi = HypervolumeImprovement(self.pf, self.rf, mu, sigma)
         # probability for the quantile
         beta = self.get_beta()
         if beta <= 1 - hvi.dominating_prob:
             return 1, 0, beta
         func = lambda x: hvi.cdf(x) - beta
+        
         # sample 100 evenly-spaced points in log-10 scale to approximate the quantile
         x = 10 ** np.linspace(-1, np.log10(hvi.max_hvi), 100)
         v = np.abs(func(x))
         idx = np.argmin(v)
         out = x[idx]
+        
         # if the precision of above approximation is not enough
         if not np.isclose(v[idx], 0, rtol=self.tol, atol=self.tol):
             # refine the quantile value
             out_ = newton(func, x0=out, fprime=hvi.pdf, tol=self.tol, maxiter=20, disp=False)
             if out > 0:
                 out = out_
-        return [float(v[idx]), float(out), float(beta)]  # abs(CDF-CI), a
+        return [float(v[idx]), float(out), float(beta)]  # abs(CDF-CI), HVI, beta 
 
     def evaluate(self, val, calc_gradient=False, calc_hessian=False):
         self.val = val
         N = len(val["S"])
         F = np.atleast_2d(Parallel(n_jobs=7)(delayed(self._evaluate_one)(i) for i in range(N)))
-
-        return -F[:, 1], F[:, 0], F[:, 2]  # a, abs(CDF-CI), none
-
-
-class HVI_UCB_M3(Acquisition):
-    r"""Upper Confidence Bound of the hypervolume improvement
-
-    TODO: add the reference to our paper once it is accepted
-    """
-    # search for the individual x of which cdf value is nearest to the defined CI (beta)
-    requires_std = True
-
-    def __init__(self, tol: float = 1e-1, **kwargs):
-        super().__init__(**kwargs)
-        self.n_sample: int = 0
-        self.n0: int = 0
-        self.tol: float = tol
-
-    def fit(self, X, Y) -> HVI_UCB_M3:
-        self.n_sample = X.shape[0]
-        self.pf = find_pareto_front(Y, return_index=False)
-        # self.rf = np.max(Y, axis=0) + 1
-        self.rf = [15, 15]
-        return self
-
-    def delta_hvi(self, maxHVI) -> float:
-        # n = self.n_sample - self.n0+1
-        # # return maxHVI * np.true_divide(1,n)**0.2
-        # return maxHVI - n * maxHVI / 171
-
-        t = self.n_sample - self.n0
-        a = 1
-        b = 0.02 / a
-        y = (1 / np.exp(t ** a)) ** b
-        return y * maxHVI
-
-    def _evaluate_one(self, i) -> Tuple[float, float]:
-        mu, sigma = self.val["F"][i, :], self.val["S"][i, :]
-        hvi = HypervolumeImprovement(self.pf, self.rf, mu, sigma)
-
-        # x = self.delta_hvi(hvi.max_hvi * 0.382)
-        # x = self.delta_hvi(hvi.max_hvi * hvi.dominating_prob)
-        # x = self.delta_hvi(hvi.max_hvi * 0.618)
-        x = self.delta_hvi(1 * 0.05)
-        out = -(1 - hvi.cdf(x))
-
-        return [float(out), float(x)]  # - CDF in non-dominate space, a
-
-    def evaluate(self, val, calc_gradient=False, calc_hessian=False):
-        self.val = val
-        N = len(val["S"])
-        F = np.atleast_2d(Parallel(n_jobs=7)(delayed(self._evaluate_one)(i) for i in range(N)))
-
-        return F[:, 0], F[:, 1], None  # abs(CDF-CI), a
-
-
-class HVI_UCB_M3_EPSILON(Acquisition):
-    r"""Upper Confidence Bound of the hypervolume improvement
-
-    TODO: add the reference to our paper once it is accepted
-    """
-    # search for the individual x of which cdf value is nearest to the defined CI (beta)
-    requires_std = True
-
-    def __init__(self, tol: float = 1e-1, **kwargs):
-        super().__init__(**kwargs)
-        self.n_sample: int = 0
-        self.n0: int = 0
-        self.tol: float = tol
-
-    def fit(self, X, Y) -> HVI_UCB_M3_EPSILON:
-        self.n_sample = X.shape[0]
-        epsilon = 0.05
-        self.pf_org = find_pareto_front(Y, return_index=False)
-        self.pf = self.pf_org - epsilon
-        self.rf = [15, 15]
-        self.pf_shape = self.pf.shape
-        return self
-
-    def delta_hvi(self) -> float:
-        # n = self.n_sample - self.n0+1
-        # # return maxHVI * np.true_divide(1,n)**0.2
-        # return maxHVI - n * maxHVI / 171
-        num_pf = self.pf.shape[0]
-        hvi_pf = np.array([0] * num_pf)
-
-
-        hv = get_performance_indicator("hv", ref_point=self.rf)
-        hv_current = hv.calc(self.pf_org)
-
-        hvi_pf = np.array([float(0)] * num_pf)
-        for i in range(0, num_pf):
-            hvi_pf[i] = hv.calc(np.vstack([self.pf_org, self.pf[i]])) - hv_current
-
-        rst = np.min(hvi_pf)
-        return rst
-        # return rst if rst < maxHVI else maxHVI
-
-    def _evaluate_one(self, i) -> Tuple[float, float]:
-        mu, sigma = self.val["F"][i, :], self.val["S"][i, :]
-        hvi = HypervolumeImprovement(self.pf, self.rf, mu, sigma)
-
-        # x = self.delta_hvi(hvi.max_hvi * 0.382)
-        # x = self.delta_hvi(hvi.max_hvi * hvi.dominating_prob)
-        # x = self.delta_hvi(hvi.max_hvi * 0.618)
-        x = self.delta_hvi()
-        out = -(1 - hvi.cdf(x))
-        return [float(out), float(x)]  # - CDF in non-dominate space, a
-
-    def evaluate(self, val, calc_gradient=False, calc_hessian=False):
-        self.val = val
-        N = len(val["S"])
-
-        # F = np.array([[float(0)] * 3] * N)
-        # for i in range(N):
-        #     F[i] = self._evaluate_one(i)
-        F = np.atleast_2d(Parallel(n_jobs=7)(delayed(self._evaluate_one)(i) for i in range(N)))
-
-        return F[:, 0], F[:, 1], None  # abs(CDF-CI), a
-
-
+        # To maximize the HVI value under the same confidence bound
+        return -F[:, 1], F[:, 0], F[:, 2]  # HVI, abs(CDF-CI), none
 
 class Epsilon_PoI(Acquisition):
-    from scipy.stats import norm
     """at least epsilon PoI """
-    # search for the solution with at least Epsilon PoI
-    # currently only works for bio-objective optimization
+    """ search for $\epsilon \%$ HVI improvement
+    """
     """Naive Upper Confidence Bound"""
 
     requires_std = True
@@ -562,7 +176,8 @@ class Epsilon_PoI(Acquisition):
     def fit(self, X, Y):
         epsilon = 0.05
         self.pf = find_pareto_front(Y, return_index=False) - epsilon
-        self.rf = np.array([1,1])
+        if (self.rf is 'dynamic'):
+            self.rf = np.max(self.pf, axis=0) + 1
         self.pf_shape = self.pf.shape
 
     def transform_pf(self,mu, sigma):
@@ -572,8 +187,6 @@ class Epsilon_PoI(Acquisition):
                 transformed_pf[i,j] = norm.cdf((self.pf[i,j]-mu[j])/sigma[j])
         return transformed_pf
 
-    
-    
     def _evaluate_one(self, i) -> float:
         mu, sigma = self.val["F"][i, :], self.val["S"][i, :]
         transformed_pf = self.transform_pf(mu, sigma)
@@ -594,13 +207,11 @@ class Epsilon_PoI(Acquisition):
 
         return -F[:, 0], F[:, 1], F[:, 2] 
 
-
-
 class Epsilon_PoI_Cut(Acquisition):
-    from scipy.stats import norm
+    
     """at least epsilon PoI """
-    # search for the solution with at least Epsilon PoI
-    # currently only works for bio-objective optimization
+    """ search for $\epsilon HVI$ improvement
+    """
     """Naive Upper Confidence Bound"""
 
     requires_std = True
@@ -613,8 +224,10 @@ class Epsilon_PoI_Cut(Acquisition):
 
 
     def fit(self, X, Y):
+
         self.pf = find_pareto_front(Y, return_index=False) 
-        self.rf = np.array([[15,15]])
+        if (self.rf is 'dynamic'):
+            self.rf = np.max(self.pf, axis=0) + 1
         hv = get_performance_indicator("hv", ref_point=np.ravel(self.rf))
 
         func = lambda x: hv.calc(self.pf - x) - hv.calc(self.pf) - self.delta_hvi(0.05)   
@@ -638,14 +251,13 @@ class Epsilon_PoI_Cut(Acquisition):
                 transformed_data[i,j] = norm.cdf((data[i,j]-mu[j])/sigma[j])
         return transformed_data
 
-    
-    
+
     def _evaluate_one(self, i) -> float:
         mu, sigma = self.val["F"][i, :], self.val["S"][i, :]
         transformed_pf = self.transform_data(self.pf, mu, sigma)
 
         # cut the space by using reference point: 
-        self.tf_rf = np.ravel(self.transform_data(self.rf, mu, sigma))
+        self.tf_rf = np.ravel(self.transform_data(np.atleast_2d(self.rf), mu, sigma))
 
         hv = get_performance_indicator("hv", ref_point=self.tf_rf)
         F = (np.prod(self.tf_rf) - hv.calc(transformed_pf)) / np.prod(self.tf_rf)
@@ -656,100 +268,58 @@ class Epsilon_PoI_Cut(Acquisition):
         dF, hF = None, None
         self.val = val
         N = len(val["S"])
+        
+        F = np.array([[float(0)] * 3] * N)
 
-        # F = np.array([[float(0)] * 3] * N)
         # for i in range(N):
         #     F[i] = self._evaluate_one(i)
-
 
         F = np.atleast_2d(Parallel(n_jobs=7)(delayed(self._evaluate_one)(i) for i in range(N)))
 
         return -F[:, 0], F[:, 1], F[:, 2] 
-
-
-class HVI_UCB_M4(Acquisition):
-    r"""Upper Confidence Bound of the hypervolume improvement of using dynamic reference point
+    
+class PoHVI(Acquisition):
+    r"""Upper Confidence Bound of the hypervolume improvement
 
     TODO: add the reference to our paper once it is accepted
     """
-    # search for the individual x of which cdf value is nearest to the defined CI (beta)
+    # search for the individual x of which cdf value is nearest to the defined epsilon of HVI 
     requires_std = True
+
     def __init__(self, tol: float = 1e-1, **kwargs):
         super().__init__(**kwargs)
         self.n_sample: int = 0
         self.n0: int = 0
         self.tol: float = tol
 
-
-class HVI_UCB_M3_EPSILON_DR(Acquisition):
-    r"""Upper Confidence Bound of the hypervolume improvement of using dynamic reference point
-
-    TODO: add the reference to our paper once it is accepted
-    """
-    # search for the individual x of which cdf value is nearest to the defined CI (beta)
-    requires_std = True
-
-    def __init__(self, tol: float = 1e-1, **kwargs):
-        super().__init__(**kwargs)
-        self.n_sample: int = 0
-        self.n0: int = 30               #TODO: import from Acuiqistion function
-        self.window_size: int = 10      #TODO: import from Acuiqistion function
-        self.tol: float = tol
-
-    def fit(self, X, Y) -> HVI_UCB_M3_EPSILON_DR:
+    def fit(self, X, Y) -> PoHVI:
         self.n_sample = X.shape[0]
-        epsilon = 0.05          #TODO: import from Acquisition function 
-        self.rf = [15, 15]      #TODO: import from Acuiqistion function
-        if self.n_sample - self.window_size < self.n0: 
-            self.extreme_point_impr_prob = 1
-        else: 
-            old_pf_extreme = Y[0:self.n_sample - self.window_size].min(axis=0)
-            y_in_window = Y[self.n_sample - self.window_size: self.n_sample]
-            rst = (y_in_window < old_pf_extreme).any(axis=1)
-            self.extreme_point_impr_prob = np.sum(rst) / rst.shape[0]
-        
+        self.pf = find_pareto_front(Y, return_index=False)
+        # self.rf = np.max(Y, axis=0) + 1
+        if (self.rf is 'dynamic'):
+            self.rf = np.max(self.pf, axis=0) + 1 
 
-
-
-        self.pf_org = find_pareto_front(Y, return_index=False)
-        self.pf = self.pf_org - epsilon
-        
-        self.pf_shape = self.pf.shape
-        return self
-
-    def delta_hvi(self) -> float:
+    def delta_hvi(self, maxHVI) -> float:
         # n = self.n_sample - self.n0+1
         # # return maxHVI * np.true_divide(1,n)**0.2
         # return maxHVI - n * maxHVI / 171
-        num_pf = self.pf.shape[0]
-        hvi_pf = np.array([0] * num_pf)
-
-        hv = get_performance_indicator("hv", ref_point=self.rf)
-        hv_current = hv.calc(self.pf_org)
-
-        hvi_pf = np.array([float(0)] * num_pf)
-        for i in range(0, num_pf):
-            hvi_pf[i] = hv.calc(np.vstack([self.pf_org, self.pf[i]])) - hv_current
-
-        rst = np.min(hvi_pf)
-        return rst
-        # return rst if rst < maxHVI else maxHVI
+        t = self.n_sample - self.n0
+        a = 1
+        b = 0.02 / a
+        y = (1 / np.exp(t ** a)) ** b
+        return y * maxHVI
 
     def _evaluate_one(self, i) -> Tuple[float, float]:
         mu, sigma = self.val["F"][i, :], self.val["S"][i, :]
-        hvi = HypervolumeImprovement(self.pf, self.rf, mu, sigma, self.extreme_point_impr_prob)
+        hvi = HypervolumeImprovement(self.pf, self.rf, mu, sigma)
+        x = self.delta_hvi(1 * 0.05)
+        out = hvi.cdf(x) - 1
 
-        x = self.delta_hvi()
-        out = -(1 - hvi.cdf(x))
         return [float(out), float(x)]  # - CDF in non-dominate space, a
 
     def evaluate(self, val, calc_gradient=False, calc_hessian=False):
         self.val = val
         N = len(val["S"])
-
-        # F = np.array([[float(0)] * 2] * N)
-        # for i in range(N):
-        #     F[i] = self._evaluate_one(i)
         F = np.atleast_2d(Parallel(n_jobs=7)(delayed(self._evaluate_one)(i) for i in range(N)))
 
-        return F[:, 0], F[:, 1], None  # abs(CDF-CI), a
+        return F[:, 0], F[:, 1], None  # hvi.cdf(x) - 1 --> to minimize, a

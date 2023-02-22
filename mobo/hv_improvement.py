@@ -132,6 +132,10 @@ class HypervolumeImprovement:
         r: Union[List, np.ndarray],
         mu: List[float],
         sigma: List[float],
+<<<<<<< Updated upstream
+=======
+        extreme_point_impr_prob: float = 1.0,
+>>>>>>> Stashed changes
     ):
         self.mu = np.array(mu)
         self.sigma = np.array(sigma)
