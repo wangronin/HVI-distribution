@@ -6,12 +6,12 @@ from typing import Tuple
 import numpy as np
 from joblib import Parallel, delayed
 from pymoo.factory import get_performance_indicator
+from scipy import optimize
 from scipy.optimize import newton
 from scipy.stats import norm
 
 from .hv_improvement import HypervolumeImprovement
 from .utils import expand, find_pareto_front, safe_divide
-from scipy import optimize
 
 """
 Acquisition functions that define the objectives for surrogate multi-objective problem
@@ -56,8 +56,10 @@ class Acquisition(ABC):
         """
         pass
 
+
 class NUCB(Acquisition):
     """Naive Upper Confidence Bound"""
+
     requires_std = True
 
     def __init__(self, *args, **kwargs):
@@ -66,7 +68,7 @@ class NUCB(Acquisition):
     def fit(self, X, Y):
         self.n_sample = X.shape[0]
         self.pf = find_pareto_front(Y, return_index=False)
-        if (self.rf is 'dynamic'):
+        if self.rf is "dynamic":
             self.rf = np.max(self.pf, axis=0) + 1
 
     def evaluate(self, val, calc_gradient=False, calc_hessian=False):
@@ -111,6 +113,7 @@ class NUCB(Acquisition):
 
         return -FF, dF, hF
 
+
 class UCB(Acquisition):
     r"""Upper Confidence Bound of the hypervolume improvement"""
     # search for the individual x of which hvi is largest and the cdf value is nearest to the defined CI (beta)
@@ -125,7 +128,7 @@ class UCB(Acquisition):
     def fit(self, X, Y) -> UCB:
         self.n_sample = X.shape[0]
         self.pf = find_pareto_front(Y, return_index=False)
-        if (self.rf is 'dynamic'):
+        if self.rf is "dynamic":
             self.rf = np.max(self.pf, axis=0) + 1
     
 
@@ -136,26 +139,26 @@ class UCB(Acquisition):
     def _evaluate_one(self, i) -> Tuple[float, float]:
         mu, sigma = self.val["F"][i, :], self.val["S"][i, :]
         hvi = HypervolumeImprovement(self.pf, self.rf, mu, sigma)
-        
+
         # probability for the quantile
         beta = self.get_beta()
         if beta <= 1 - hvi.dominating_prob:
             return 1, 0, beta
         func = lambda x: hvi.cdf(x) - beta
-        
+
         # sample 100 evenly-spaced points in log-10 scale to approximate the quantile
         x = 10 ** np.linspace(-1, np.log10(hvi.max_hvi), 100)
         v = np.abs(func(x))
         idx = np.argmin(v)
         out = x[idx]
-        
+
         # if the precision of above approximation is not enough
         if not np.isclose(v[idx], 0, rtol=self.tol, atol=self.tol):
             # refine the quantile value
             out_ = newton(func, x0=out, fprime=hvi.pdf, tol=self.tol, maxiter=20, disp=False)
             if out > 0:
                 out = out_
-        return [float(v[idx]), float(out), float(beta)]  # abs(CDF-CI), HVI, beta 
+        return [float(v[idx]), float(out), float(beta)]  # abs(CDF-CI), HVI, beta
 
     def evaluate(self, val, calc_gradient=False, calc_hessian=False):
         self.val = val
@@ -164,8 +167,10 @@ class UCB(Acquisition):
         # To maximize the HVI value under the same confidence bound
         return -F[:, 1], F[:, 0], F[:, 2]  # HVI, abs(CDF-CI), none
 
+
 class Epsilon_PoI(Acquisition):
-    """at least epsilon PoI """
+    """at least epsilon PoI"""
+
     """ search for $\epsilon \%$ HVI improvement
     """
     """Naive Upper Confidence Bound"""
@@ -178,15 +183,15 @@ class Epsilon_PoI(Acquisition):
     def fit(self, X, Y):
         epsilon = 0.05
         self.pf = find_pareto_front(Y, return_index=False) - epsilon
-        if (self.rf is 'dynamic'):
+        if self.rf is "dynamic":
             self.rf = np.max(self.pf, axis=0) + 1
         self.pf_shape = self.pf.shape
 
-    def transform_pf(self,mu, sigma):
+    def transform_pf(self, mu, sigma):
         transformed_pf = np.zeros(self.pf_shape)
         for i in range(self.pf_shape[0]):
-            for j in range(self.pf_shape[1]): 
-                transformed_pf[i,j] = norm.cdf((self.pf[i,j]-mu[j])/sigma[j])
+            for j in range(self.pf_shape[1]):
+                transformed_pf[i, j] = norm.cdf((self.pf[i, j] - mu[j]) / sigma[j])
         return transformed_pf
 
     def _evaluate_one(self, i) -> float:
@@ -207,11 +212,13 @@ class Epsilon_PoI(Acquisition):
         #     F[i] = self._evaluate_one(i)
         F = np.atleast_2d(Parallel(n_jobs=7)(delayed(self._evaluate_one)(i) for i in range(N)))
 
-        return -F[:, 0], F[:, 1], F[:, 2] 
+        return -F[:, 0], F[:, 1], F[:, 2]
+
 
 class Epsilon_PoI_Cut(Acquisition):
-    
-    """at least epsilon PoI """
+
+    """at least epsilon PoI"""
+
     """ search for $\epsilon HVI$ improvement
     """
     """Naive Upper Confidence Bound"""
@@ -224,41 +231,38 @@ class Epsilon_PoI_Cut(Acquisition):
         self.n0: int = 0
         self.tol: float = tol
 
-
     def fit(self, X, Y):
-
-        self.pf = find_pareto_front(Y, return_index=False) 
-        if (self.rf is 'dynamic'):
+        self.pf = find_pareto_front(Y, return_index=False)
+        if self.rf is "dynamic":
             self.rf = np.max(self.pf, axis=0) + 1
         hv = get_performance_indicator("hv", ref_point=np.ravel(self.rf))
 
-        func = lambda x: hv.calc(self.pf - x) - hv.calc(self.pf) - self.delta_hvi(0.05)   
-        solution = optimize.root(func, 0.05, method='lm')
-        
+        func = lambda x: hv.calc(self.pf - x) - hv.calc(self.pf) - self.delta_hvi(0.05)
+        solution = optimize.root(func, 0.05, method="lm")
+
         self.pf = self.pf - solution.x
-        
+
         self.pf_shape = self.pf.shape
 
     def delta_hvi(self, maxHVI) -> float:
         t = self.n_sample - self.n0
         a = 1
         b = 0.02 / a
-        y = (1 / np.exp(t ** a)) ** b
+        y = (1 / np.exp(t**a)) ** b
         return y * maxHVI
 
     def transform_data(self, data, mu, sigma):
         transformed_data = np.zeros(data.shape)
         for i in range(data.shape[0]):
-            for j in range(data.shape[1]): 
-                transformed_data[i,j] = norm.cdf((data[i,j]-mu[j])/sigma[j])
+            for j in range(data.shape[1]):
+                transformed_data[i, j] = norm.cdf((data[i, j] - mu[j]) / sigma[j])
         return transformed_data
-
 
     def _evaluate_one(self, i) -> float:
         mu, sigma = self.val["F"][i, :], self.val["S"][i, :]
         transformed_pf = self.transform_data(self.pf, mu, sigma)
 
-        # cut the space by using reference point: 
+        # cut the space by using reference point:
         self.tf_rf = np.ravel(self.transform_data(np.atleast_2d(self.rf), mu, sigma))
 
         hv = get_performance_indicator("hv", ref_point=self.tf_rf)
@@ -270,7 +274,7 @@ class Epsilon_PoI_Cut(Acquisition):
         dF, hF = None, None
         self.val = val
         N = len(val["S"])
-        
+
         F = np.array([[float(0)] * 3] * N)
 
         # for i in range(N):
@@ -278,14 +282,15 @@ class Epsilon_PoI_Cut(Acquisition):
 
         F = np.atleast_2d(Parallel(n_jobs=7)(delayed(self._evaluate_one)(i) for i in range(N)))
 
-        return -F[:, 0], F[:, 1], F[:, 2] 
-    
+        return -F[:, 0], F[:, 1], F[:, 2]
+
+
 class PoHVI(Acquisition):
     r"""Upper Confidence Bound of the hypervolume improvement
 
     TODO: add the reference to our paper once it is accepted
     """
-    # search for the individual x of which cdf value is nearest to the defined epsilon of HVI 
+    # search for the individual x of which cdf value is nearest to the defined epsilon of HVI
     requires_std = True
 
     def __init__(self, tol: float = 1e-1, **kwargs):
@@ -298,8 +303,8 @@ class PoHVI(Acquisition):
         self.n_sample = X.shape[0]
         self.pf = find_pareto_front(Y, return_index=False)
         # self.rf = np.max(Y, axis=0) + 1
-        if (self.rf is 'dynamic'):
-            self.rf = np.max(self.pf, axis=0) + 1 
+        if self.rf is "dynamic":
+            self.rf = np.max(self.pf, axis=0) + 1
 
     def delta_hvi(self, maxHVI) -> float:
         # n = self.n_sample - self.n0+1
@@ -308,7 +313,7 @@ class PoHVI(Acquisition):
         t = self.n_sample - self.n0
         a = 1
         b = 0.02 / a
-        y = (1 / np.exp(t ** a)) ** b
+        y = (1 / np.exp(t**a)) ** b
         return y * maxHVI
 
     def _evaluate_one(self, i) -> Tuple[float, float]:
