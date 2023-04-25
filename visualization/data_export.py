@@ -115,13 +115,13 @@ class DataExport:
             d1[col_name] = Y_next_pred_std[:, i]
             col_name = f'Acquisition_f{i + 1}'
             acquisition_func = type(self.optimizer.acquisition).__name__
-            if acquisition_func in ['UCB'] or acquisition_func.startswith('HVI_UCB'):
-                d1[col_name] = acquisition
-                if acquisition_func.startswith('HVI_UCB'): 
-                    d1['a'] = acquisition_b
-                    d1['beta'] = beta
-            else:  
-                d1[col_name] = acquisition[:, i]
+            # if acquisition_func in ['UCB', 'Epsilon_PoI', 'Epsilon_PoI_Cut'] or acquisition_func.startswith('HVI_UCB'):
+            d1[col_name] = acquisition
+            # if acquisition_func.startswith('HVI_UCB'): 
+            d1['a'] = acquisition_b
+            d1['beta'] = beta
+            # else:  
+            #     d1[col_name] = acquisition[:, i]
 
         d1['Hypervolume_indicator'] = np.full(self.batch_size, hv_value)
 

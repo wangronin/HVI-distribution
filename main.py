@@ -48,7 +48,7 @@ def main():
         exporter.write_truefront_csv(true_pfront)
 
     for _ in range(args.n_iter):
-        # get new design samples and corresponding performance
+        # get new design samples and corresponding per`formance
         X_next, Y_next = next(solution)
 
         # update & export current status to csv

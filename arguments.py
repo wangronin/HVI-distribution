@@ -28,7 +28,7 @@ def get_general_args(args=None):
         "--ref-point",
         type=float,
         nargs="+",
-        default=[0, 0],
+        default=[15, 15],
         help="reference point for calculating hypervolume",
     )
     parser.add_argument(
@@ -41,7 +41,9 @@ def get_general_args(args=None):
     parser.add_argument(
         "--algo",
         type=str,
-        default="hvic-m4-es",
+        default="pohvi",
+        # default="epoi",
+        # default="epoi_c",
         # parser.add_argument('--algo', type=str, default='ucb',
         # parser.add_argument('--algo', type=str, default='usemo-ei',
         help="type of algorithm to use with some predefined arguments, or custom arguments",
@@ -119,8 +121,8 @@ def get_acquisition_args(args=None):
     parser.add_argument(
         "--acquisition",
         type=str,
-        choices=["identity", "pi", "ei", "ucb"],
-        default="ubc",
+        choices=["pi", "ei", "ucb"],
+        default="ucb",
         help="type of the acquisition function",
     )
 

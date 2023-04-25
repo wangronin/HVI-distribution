@@ -108,6 +108,7 @@ class MOBO:
         self.selection.set_ref_point(self.ref_point)
         self._update_status(X_init, Y_init)
         self.acquisition.n0 = len(X_init)
+        self.acquisition.rf = self.selection.ref_point
         global_timer = Timer()
 
         for i in range(self.n_iter):
@@ -122,6 +123,8 @@ class MOBO:
             self.surrogate_model.fit(X, Y)
             timer.log("Surrogate model fitted")
 
+
+
             # create acquisition functions
             self.acquisition.fit(X, Y)
 
@@ -134,7 +137,7 @@ class MOBO:
             )
                 
             acquisition_func = type(self.acquisition).__name__ 
-            if acquisition_func in ['UCB'] or acquisition_func.startswith('HVI_UCB'):
+            if acquisition_func in ['UCB', 'Epsilon_PoI'] or acquisition_func.startswith('HVI_UCB'):
                 surr_problem.n_obj = 1
                 
             # if type(self.acquisition).__name__ in ("HVI_UCB", "UCB"):

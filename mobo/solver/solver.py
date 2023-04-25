@@ -32,12 +32,15 @@ class Solver:
         
         
         sampling = self._get_sampling(X, Y)     # initialize population
+        
         # setup algorithm
         if self.algo_type.__name__ == 'GA':
             
             algo = self.algo_type(sampling=sampling, **self.algo_kwargs)
         elif self.algo_type.__name__ == 'CMAES':
             algo = self.algo_type(x0=sampling, **self.algo_kwargs)
+        else:
+            algo = self.algo_type(sampling=sampling, **self.algo_kwargs)
        
         # optimization
         res = minimize(problem, algo, ('n_gen', self.n_gen))

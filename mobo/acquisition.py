@@ -30,10 +30,11 @@ class Acquisition(ABC):
     def __init__(self, *args, **kwargs):
         pass
 
-    def fit(self, X, Y):
+    def fit(self, X, Y, ref):
         """
         Fit the parameters of acquisition function from data
         """
+        
         pass
 
     @abstractmethod
@@ -126,6 +127,7 @@ class UCB(Acquisition):
         self.pf = find_pareto_front(Y, return_index=False)
         if (self.rf is 'dynamic'):
             self.rf = np.max(self.pf, axis=0) + 1
+    
 
     def get_beta(self) -> float:
         t = self.n_sample - self.n0 + 1

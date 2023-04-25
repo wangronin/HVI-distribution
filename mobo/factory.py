@@ -4,11 +4,12 @@ Factory for importing different components of the MOBO framework by name
 
 
 def get_surrogate_model(name):
-    from .surrogate_model import GaussianProcess, ThompsonSampling
+    from .surrogate_model import GaussianProcess, ThompsonSampling, RandomForest
 
     surrogate_model = {
         'gp': GaussianProcess,
         'ts': ThompsonSampling,
+        'rf': RandomForest,
     }
 
     surrogate_model['default'] = GaussianProcess
@@ -17,20 +18,26 @@ def get_surrogate_model(name):
 
 
 def get_acquisition(name):
-    from .acquisition import IdentityFunc, PI, EI, UCB, HVI_UCB_M1, HVI_UCB_M2, HVI_UCB_M3, HVI_UCB_M4
-
+    from .acquisition import  Epsilon_PoI, UCB, Epsilon_PoI_Cut, PoHVI, NUCB
     acquisition = {
-        'identity': IdentityFunc,
-        'pi': PI,
-        'ei': EI,
+        # 'identity': IdentityFunc,
+        # 'pi': PI,
+        # 'ei': EI,
         'ucb': UCB,
-        'hvi_ucb_m1': HVI_UCB_M1,
-        'hvi_ucb_m2': HVI_UCB_M2,
-        'hvi_ucb_m3': HVI_UCB_M3,
-        'hvi_ucb_m4': HVI_UCB_M4,
+        'nucb': NUCB,
+        'pohvi': PoHVI,
+        # 'hvi_ucb_m1': HVI_UCB_M1,
+        # 'hvi_ucb_m2': HVI_UCB_M2,
+        # 'hvi_ucb_m3': HVI_UCB_M3,
+        # 'hvi_ucb_m4': HVI_UCB_M4,
+        'epoi': Epsilon_PoI,
+        'epoi_cut': Epsilon_PoI_Cut,
+        # 'hvi_ucb_m3_epsilon': HVI_UCB_M3_EPSILON,
+        # 'hvi_ucb_m3_epsilon_dr': HVI_UCB_M3_EPSILON_DR,
+
     }
 
-    acquisition['default'] = IdentityFunc
+    acquisition['default'] = UCB
 
     return acquisition[name]
 

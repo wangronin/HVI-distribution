@@ -40,7 +40,7 @@ def main():
     n_active_process = 0
     start_time = time()
 
-    for seed in range(args.n_seed):
+    for seed in range(0, args.n_seed):
         for problem in args.problem:
             for algo in args.algo:
 
