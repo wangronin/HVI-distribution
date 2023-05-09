@@ -1,6 +1,4 @@
 import numpy as np
-from mobo.surrogate_model.base import SurrogateModel
-from mobo.utils import safe_divide
 from scipy.linalg import solve_triangular
 from scipy.optimize import minimize
 from scipy.spatial.distance import cdist
@@ -8,15 +6,17 @@ from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, ConstantKernel, Matern
 from sklearn.utils.optimize import _check_optimize_result
 
+from mobo.surrogate_model.base import SurrogateModel
+from mobo.utils import safe_divide
+
 
 class GaussianProcess(SurrogateModel):
     """
     Gaussian process
     """
 
-    def __init__(self, n_var, n_obj, nu, **kwargs):
+    def __init__(self, n_var, n_obj, nu, random_state=None, **kwargs):
         super().__init__(n_var, n_obj)
-
         self.nu = nu
         self.gps = []
 
@@ -43,15 +43,14 @@ class GaussianProcess(SurrogateModel):
                 main_kernel = RBF(length_scale=np.ones(n_var), length_scale_bounds=(1e-10, 1e5))
 
             # new version setting
-            kernel = (
-                ConstantKernel(constant_value=1.0, constant_value_bounds=(1e-5, 1e3)) * main_kernel
-            )
+            kernel = ConstantKernel(constant_value=1.0, constant_value_bounds=(1e-5, 1e3)) * main_kernel
 
             gp = GaussianProcessRegressor(
                 kernel=kernel,
                 normalize_y=True,
                 alpha=1e-5,
                 n_restarts_optimizer=int(5 * n_var),
+                random_state=random_state,
             )
             self.gps.append(gp)
 

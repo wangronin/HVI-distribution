@@ -17,7 +17,7 @@ class MOBO:
 
     config = {}
 
-    def __init__(self, problem, n_iter, ref_point, framework_args):
+    def __init__(self, problem, n_iter, ref_point, framework_args, random_state: int = None):
         """
         Input:
             problem: the original / real optimization problem
@@ -40,6 +40,7 @@ class MOBO:
         framework_args["surrogate"]["n_var"] = self.n_var  # for surrogate fitting
         framework_args["surrogate"]["n_obj"] = self.n_obj  # for surroagte fitting
         framework_args["solver"]["n_obj"] = self.n_obj  # for MOEA/D-EGO
+        framework_args["surrogate"]["random_state"] = random_state  # set the random seed for surrogates
         framework = init_from_config(self.config, framework_args)
 
         self.surrogate_model = framework["surrogate"]  # surrogate model
@@ -59,7 +60,9 @@ class MOBO:
             del self.solver.algo_kwargs["delta_s"]
             del self.solver.algo_kwargs["n_grid_sample"]
             del self.solver.algo_kwargs["n_obj"]
-            self.solver.algo_kwargs['sigma'] = self.solver.algo_kwargs['sigma'] * np.min(problem.xu - problem.xl)
+            self.solver.algo_kwargs["sigma"] = (
+                self.solver.algo_kwargs["sigma"] * np.min(problem.xu - problem.xl) / 4
+            )
             # del self.solver.algo_kwargs["pop_size"]
             # self.solver.algo_kwargs["n-gen"] = \
             #     self.solver.algo_kwargs["n-gen"] * self.solver.algo_kwargs["restarts"]
@@ -123,8 +126,6 @@ class MOBO:
             self.surrogate_model.fit(X, Y)
             timer.log("Surrogate model fitted")
 
-
-
             # create acquisition functions
             self.acquisition.fit(X, Y)
 
@@ -135,17 +136,15 @@ class MOBO:
                 self.acquisition,
                 self.transformation,
             )
-                
-            acquisition_func = type(self.acquisition).__name__ 
-            if acquisition_func in ['UCB', 'Epsilon_PoI'] or acquisition_func.startswith('HVI_UCB'):
+            self.current_surrogate = surr_problem
+
+            acquisition_func = type(self.acquisition).__name__
+            if acquisition_func in ["UCB", "Epsilon_PoI"] or acquisition_func.startswith("HVI_UCB"):
                 surr_problem.n_obj = 1
-                
-            # if type(self.acquisition).__name__ in ("HVI_UCB", "UCB"):
-            #     surr_problem.n_obj = 1
 
             solution = self.solver.solve(surr_problem, X, Y)
+            # solution = np.random.rand(2)
             timer.log("Surrogate problem solved")
-
             # batch point selection
             self.selection.fit(X, Y)
             X_next, self.info = self.selection.select(

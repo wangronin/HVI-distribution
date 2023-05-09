@@ -34,7 +34,7 @@ class Acquisition(ABC):
         """
         Fit the parameters of acquisition function from data
         """
-        
+
         pass
 
     @abstractmethod
@@ -130,7 +130,6 @@ class UCB(Acquisition):
         self.pf = find_pareto_front(Y, return_index=False)
         if self.rf is "dynamic":
             self.rf = np.max(self.pf, axis=0) + 1
-    
 
     def get_beta(self) -> float:
         t = self.n_sample - self.n0 + 1
@@ -140,30 +139,35 @@ class UCB(Acquisition):
         mu, sigma = self.val["F"][i, :], self.val["S"][i, :]
         hvi = HypervolumeImprovement(self.pf, self.rf, mu, sigma)
 
-        # probability for the quantile
+        # get upper confidence probablity
         beta = self.get_beta()
-        if beta <= 1 - hvi.dominating_prob:
+        if beta <= 1 - hvi.dominating_prob:  # the probability mass is mostly on the dominated side
             return 1, 0, beta
-        func = lambda x: hvi.cdf(x) - beta
 
+        # search the quantile corresponds to the beta value
+        func = lambda x: hvi.cdf(x) - beta
         # sample 100 evenly-spaced points in log-10 scale to approximate the quantile
-        x = 10 ** np.linspace(-1, np.log10(hvi.max_hvi), 100)
-        v = np.abs(func(x))
-        idx = np.argmin(v)
-        out = x[idx]
+        x = 10 ** np.linspace(-1, np.log10(hvi.max_hvi), 200)
+        errors = func(x)
+        error_pos = np.nonzero(errors > 0)[0]  # only take the positive error
+        idx = error_pos[np.argmin(errors[error_pos])]
+        quantile, error = x[idx], errors[idx]
 
         # if the precision of above approximation is not enough
-        if not np.isclose(v[idx], 0, rtol=self.tol, atol=self.tol):
+        if not np.isclose(error, 0, rtol=self.tol, atol=self.tol):
             # refine the quantile value
-            out_ = newton(func, x0=out, fprime=hvi.pdf, tol=self.tol, maxiter=20, disp=False)
-            if out > 0:
-                out = out_
-        return [float(v[idx]), float(out), float(beta)]  # abs(CDF-CI), HVI, beta
+            root = newton(func, x0=quantile, fprime=hvi.pdf, tol=self.tol, maxiter=20, disp=False)
+            if root > 0:
+                error, quantile = func(root), root
+        return [float(error), float(quantile), float(beta)]  # abs(CDF-CI), HVI, beta
 
-    def evaluate(self, val, calc_gradient=False, calc_hessian=False):
+    def evaluate(self, val, calc_gradient: bool = False, calc_hessian: bool = False):
         self.val = val
         N = len(val["S"])
-        F = np.atleast_2d(Parallel(n_jobs=7)(delayed(self._evaluate_one)(i) for i in range(N)))
+        if N <= 50:
+            F = np.atleast_2d([self._evaluate_one(i) for i in range(N)])
+        else:
+            F = np.atleast_2d(Parallel(n_jobs=7)(delayed(self._evaluate_one)(i) for i in range(N)))
         # To maximize the HVI value under the same confidence bound
         return -F[:, 1], F[:, 0], F[:, 2]  # HVI, abs(CDF-CI), none
 
