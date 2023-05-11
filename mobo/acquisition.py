@@ -201,21 +201,15 @@ class Epsilon_PoI(Acquisition):
     def _evaluate_one(self, i) -> float:
         mu, sigma = self.val["F"][i, :], self.val["S"][i, :]
         transformed_pf = self.transform_pf(mu, sigma)
-        hv = get_performance_indicator("hv", ref_point=self.rf)
+        hv = get_performance_indicator("hv", ref_point=[1, 1])
         F = 1 - hv.calc(transformed_pf)
-
         return F, None, None
 
     def evaluate(self, val, calc_gradient=False, calc_hessian=False):
         dF, hF = None, None
         self.val = val
         N = len(val["S"])
-
-        # F = np.array([[float(0)] * 3] * N)
-        # for i in range(N):
-        #     F[i] = self._evaluate_one(i)
         F = np.atleast_2d(Parallel(n_jobs=7)(delayed(self._evaluate_one)(i) for i in range(N)))
-
         return -F[:, 0], F[:, 1], F[:, 2]
 
 
@@ -325,12 +319,11 @@ class PoHVI(Acquisition):
         hvi = HypervolumeImprovement(self.pf, self.rf, mu, sigma)
         x = self.delta_hvi(1 * 0.05)
         out = hvi.cdf(x) - 1
-
+        out[out > 0] = 0
         return [float(out), float(x)]  # - CDF in non-dominate space, a
 
     def evaluate(self, val, calc_gradient=False, calc_hessian=False):
         self.val = val
         N = len(val["S"])
         F = np.atleast_2d(Parallel(n_jobs=7)(delayed(self._evaluate_one)(i) for i in range(N)))
-
         return F[:, 0], F[:, 1], None  # hvi.cdf(x) - 1 --> to minimize, a

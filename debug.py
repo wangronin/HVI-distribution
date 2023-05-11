@@ -46,13 +46,14 @@ def visualize_acquisition_landscape(
     Y = real_problem.evaluate(X)
     res = surrogate_problem.evaluate(X, return_values_of=["F"], return_as_dictionary=True)
     F = -1.0 * res["F"].reshape(len(x), -1)
-    F[F <= 0] = 0
+    F = F.astype(float)
 
     Y1 = Y[:, 0].reshape(len(x), -1)
     Y2 = Y[:, 1].reshape(len(x), -1)
     approximation_, idx = find_pareto_front(approximation[:-1, :], return_index=True)
     idx = list(set(range(len(approximation))) - set(idx))
 
+    breakpoint()
     fig, ax = plt.subplots(1, 1, figsize=(10, 10))
     plot_attainment_boundary(approximation_, ref, ax)
     ax.plot(pareto_front[:, 0], pareto_front[:, 1], "r--")
@@ -60,7 +61,7 @@ def visualize_acquisition_landscape(
     ax.plot(approximation_[:, 0], approximation_[:, 1], "g.")
     ax.plot(approximation[-1, 0], approximation[-1, 1], "g*")
 
-    cs = ax.contourf(Y1, Y2, np.log10(F), cmap="Greys")
+    cs = ax.contourf(Y1, Y2, F, cmap="Greys")
     plt.colorbar(cs, ax=ax)
     plt.xlim([0, np.max(approximation[:, 0]) * 1.1])
     plt.ylim([0, np.max(approximation[:, 1]) * 1.1])
@@ -81,10 +82,10 @@ def main():
         "zdt1", n_decision_vars, n_objectives, n_init_samples, 1
     )
     args.n_var, args.n_obj = problem.n_var, problem.n_obj
-    framework_args["solver"]["n_gen"] = 1000  # by-pass the optimization
+    framework_args["solver"]["n_gen"] = 500  # by-pass the optimization
 
     # initialize optimizer
-    optimizer = get_algorithm("ucb")(problem, args.n_iter, args.ref_point, framework_args, random_state=seed)
+    optimizer = get_algorithm("epoi")(problem, args.n_iter, args.ref_point, framework_args, random_state=seed)
 
     # save arguments & setup logger
     save_args(args, framework_args)
