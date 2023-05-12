@@ -100,7 +100,9 @@ def main():
     framework_args["solver"]["n_gen"] = 1  # by-pass the optimization
 
     # initialize optimizer
-    optimizer = get_algorithm("epoi")(problem, args.n_iter, args.ref_point, framework_args, random_state=seed)
+    optimizer = get_algorithm("pohvi")(
+        problem, args.n_iter, args.ref_point, framework_args, random_state=seed
+    )
 
     # save arguments & setup logger
     save_args(args, framework_args)

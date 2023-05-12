@@ -148,7 +148,7 @@ def cdf_product_of_truncated_gaussian(
         np.log(l),
         np.log(u),
         args=(p, m1, m2, s1, s2),
-        epsabs=1e-25,
+        epsabs=1e-20,
         epsrel=1e-20,
         limit=50,
     )[0]
