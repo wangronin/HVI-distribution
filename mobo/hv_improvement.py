@@ -8,7 +8,7 @@ from joblib import Parallel, delayed
 from numba import njit
 
 from .hypervolume import hypervolume as hv
-from .special import D2, cdf_product_of_truncated_gaussian, pdf_product_of_truncated_gaussian
+from .special import cdf_product_of_truncated_gaussian, pdf_product_of_truncated_gaussian, pnorm_range
 
 np.seterr(divide="ignore", invalid="ignore")
 warnings.simplefilter("ignore")
@@ -54,12 +54,12 @@ def _set_cells(pareto_front: np.ndarray, N: int, dim: int, mu: List[float], sigm
                 transformed_lb[i, j] = [max(0, _) for _ in transformed_lb[i, j]]
                 mu_prime[i, j] *= -1
 
-            normalizer[i, j] = D2(
+            normalizer[i, j] = pnorm_range(
                 transformed_lb[i, j, 0],
                 transformed_ub[i, j, 0],
                 mu_prime[i, j, 0],
                 sigma[0],
-            ) * D2(
+            ) * pnorm_range(
                 transformed_lb[i, j, 1],
                 transformed_ub[i, j, 1],
                 mu_prime[i, j, 1],
@@ -104,8 +104,8 @@ def _compute_probability_in_cell(
     prob_in_cell = np.zeros((N, N, 1))
     dominating_prob = 0
     for i, j in ij:
-        p1 = D2(cells_lb[i, j][0], cells_ub[i, j][0], mu[0], sigma[0])
-        p2 = D2(cells_lb[i, j][1], cells_ub[i, j][1], mu[1], sigma[1])
+        p1 = pnorm_range(cells_lb[i, j][0], cells_ub[i, j][0], mu[0], sigma[0])
+        p2 = pnorm_range(cells_lb[i, j][1], cells_ub[i, j][1], mu[1], sigma[1])
         prob_in_cell[i, j, ...] = p1 * p2
     # probability in the dominating region w.r.t. the attainment boundary
     dominating_prob = np.sum(np.tril(np.rot90(prob_in_cell)))

@@ -34,41 +34,43 @@ def erf(x: float) -> float:
     a5 = 1.061405429
     x_ = x if x >= 0 else -1.0 * x
     t = 1 / (1 + p * x_)
-    out = 1 - (a1 * t + a2 * t ** 2 + a3 * t ** 3 + a4 * t ** 4 + a5 * t ** 5) * np.exp(-1.0 * x_ ** 2)
+    out = 1 - (a1 * t + a2 * t**2 + a3 * t**3 + a4 * t**4 + a5 * t**5) * np.exp(-1.0 * x_**2)
     return out if x >= 0 else -1.0 * out
 
 
 @jit(nopython=True, error_model="numpy", cache=True)
 def dnorm(x: float, mean: float, sd: float) -> float:
-    return np.exp(-0.5 * (x - mean) ** 2 / sd ** 2) / (np.sqrt(2 * np.pi) * sd)
+    """fast implementation of Gaussian density function"""
+    return np.exp(-0.5 * (x - mean) ** 2 / sd**2) / (np.sqrt(2 * np.pi) * sd)
 
 
 @jit(nopython=True, error_model="numpy", cache=True)
 def pnorm(x: float, loc: float, scale: float) -> float:
+    """fast implementation of Gaussian density function"""
     return 0.5 * (1 + erf((x - loc) / scale / np.sqrt(2)))
 
 
 @jit(nopython=True, error_model="numpy", cache=True)
-def D2(L: float, U: float, loc: float, scale: float) -> float:
+def pnorm_range(L: float, U: float, loc: float, scale: float) -> float:
     return 0.5 * (erf((U - loc) / scale / np.sqrt(2)) - erf((L - loc) / scale / np.sqrt(2)))
 
 
-def D(L, U, loc, scale):
-    out = D2(L, U, loc, scale)
-    if out == 0:
-        val = np.mean(
-            norm.pdf(np.linspace(L, U, 10), loc=loc, scale=scale)
-            / truncnorm.pdf(
-                np.linspace(L, U, 10),
-                (L - loc) / scale,
-                (U - loc) / scale,
-                loc=loc,
-                scale=scale,
-            )
-        )
-        if not np.isnan(val):
-            out = val
-    return out
+# def D(L, U, loc, scale):
+#     out = D2(L, U, loc, scale)
+#     if out == 0:
+#         val = np.mean(
+#             norm.pdf(np.linspace(L, U, 10), loc=loc, scale=scale)
+#             / truncnorm.pdf(
+#                 np.linspace(L, U, 10),
+#                 (L - loc) / scale,
+#                 (U - loc) / scale,
+#                 loc=loc,
+#                 scale=scale,
+#             )
+#         )
+#         if not np.isnan(val):
+#             out = val
+#     return out
 
 
 @njit
@@ -100,24 +102,29 @@ def integrand_eq4(args):
 @jit_integrand
 def integrand_cdf_derivative(args):
     x, a, mu1, mu2, sigma1, sigma2 = args
-    return -1 * np.exp(-0.5 * (((x - mu1) / sigma1) ** 2 + ((a / x - mu2) / sigma2) ** 2)) / x ** 2
+    return -1 * np.exp(-0.5 * (((x - mu1) / sigma1) ** 2 + ((a / x - mu2) / sigma2) ** 2)) / x**2
 
 
 @jit_integrand
 def integrand_cdf(args):
-    x, a, mu0, mu1, sigma0, sigma1 = args
-    return 0.5 * (1 + erf((a / x - mu1) / sigma1 / np.sqrt(2))) * dnorm(x, mu0, sigma0)
+    x, p, mu0, mu1, sigma0, sigma1 = args
+    return (
+        0.5
+        * (1 + erf((p / np.exp(x) - mu1) / sigma1 / np.sqrt(2)))
+        * dnorm(np.exp(x), mu0, sigma0)
+        * np.exp(x)
+    )
 
 
 @njit
-def _term1(p, L1, L2, U2, m1, m2, s1, s2):
+def compute_term1(p, L1, L2, U2, m1, m2, s1, s2):
     v = p / U2
-    return (D2(L1, v, m1, s1) * D2(L2, U2, m2, s2)) if v > L1 else 0
+    return (pnorm_range(L1, v, m1, s1) * pnorm_range(L2, U2, m2, s2)) if v > L1 else 0
 
 
 @njit
-def _term2(L2, m1, m2, s1, s2, l, u):
-    return D2(l, u, m1, s1) * pnorm(L2, m2, s2)
+def compute_term2(L2, m1, m2, s1, s2, l, u):
+    return pnorm_range(l, u, m1, s1) * pnorm(L2, m2, s2)
 
 
 def cdf_product_of_truncated_gaussian(
@@ -134,15 +141,16 @@ def cdf_product_of_truncated_gaussian(
     L1, L2, U1, U2, m1, m2, s1, s2 = _check_parameters(lower, upper, mean, sigma)
     l, u = _get_integral_bound_cdf(p, L1, L2, U1, U2)
 
-    term1 = _term1(p, L1, L2, U2, m1, m2, s1, s2)
-    term2 = _term2(L2, m1, m2, s1, s2, l, u)
+    term1 = compute_term1(p, L1, L2, U2, m1, m2, s1, s2)
+    term2 = compute_term2(L2, m1, m2, s1, s2, l, u)
     term3 = quad(
         integrand_cdf,
-        l,
-        u,
+        np.log(l),
+        np.log(u),
         args=(p, m1, m2, s1, s2),
-        epsabs=1e-2,
-        epsrel=1e-2,
+        epsabs=1e-25,
+        epsrel=1e-20,
+        limit=50,
     )[0]
     return (term1 - term2 + term3) / normalizer
 

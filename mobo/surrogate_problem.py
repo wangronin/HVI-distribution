@@ -1,4 +1,5 @@
 import numpy as np
+
 from problems import Problem
 
 """
@@ -30,31 +31,20 @@ class SurrogateProblem(Problem):
         )
 
     def evaluate(self, *args, return_values_of="auto", **kwargs):
-        assert (
-            self.surrogate_model is not None
-        ), "surrogate model must be set first before evaluation"
+        assert self.surrogate_model is not None, "surrogate model must be set first before evaluation"
 
         # handle hF (hessian) computation, which is not supported by Pymoo
         calc_hessian = type(return_values_of) == list and "hF" in return_values_of
 
-        return super().evaluate(
-            *args,
-            return_values_of=return_values_of,
-            calc_hessian=calc_hessian,
-            **kwargs
-        )
+        return super().evaluate(*args, return_values_of=return_values_of, calc_hessian=calc_hessian, **kwargs)
 
-    def _evaluate(
-        self, x, out, *args, calc_gradient=False, calc_hessian=False, **kwargs
-    ):
+    def _evaluate(self, x, out, *args, calc_gradient=False, calc_hessian=False, **kwargs):
         # evaluate value by surrogate model
         std = self.acquisition.requires_std
         val = self.surrogate_model.evaluate(x, std, calc_gradient, calc_hessian)
 
         # evaluate out['F/dF/hF'] by certain acquisition function
-        out["F"], out["dF"], out["hF"] = self.acquisition.evaluate(
-            val, calc_gradient, calc_hessian
-        )
+        out["F"], out["dF"], out["hF"] = self.acquisition.evaluate(val, calc_gradient, calc_hessian)
 
         # evaluate constraints by real problem
         # x_ori = self.transformation.undo(x)

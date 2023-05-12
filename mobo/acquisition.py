@@ -325,5 +325,8 @@ class PoHVI(Acquisition):
     def evaluate(self, val, calc_gradient=False, calc_hessian=False):
         self.val = val
         N = len(val["S"])
-        F = np.atleast_2d(Parallel(n_jobs=7)(delayed(self._evaluate_one)(i) for i in range(N)))
+        if N <= 50:
+            F = np.atleast_2d([self._evaluate_one(i) for i in range(N)])
+        else:
+            F = np.atleast_2d(Parallel(n_jobs=7)(delayed(self._evaluate_one)(i) for i in range(N)))
         return F[:, 0], F[:, 1], None  # hvi.cdf(x) - 1 --> to minimize, a

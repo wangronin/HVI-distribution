@@ -1,3 +1,4 @@
+import copy
 import os
 
 os.environ["OMP_NUM_THREADS"] = "1"  # speed up
@@ -31,27 +32,8 @@ def plot_attainment_boundary(approximation, ref, ax):
     ax.hlines(h_pos, h_min, h_max, colors="g", linestyles="dashed")
 
 
-def plot_HVI_cdf(acquisition, value):
-    mu, sigma = acquisition.val["F"][0, :], acquisition.val["S"][0, :]
-    hvi = HypervolumeImprovement(acquisition.pf, acquisition.rf, mu, sigma)
-    x = 10 ** np.linspace(-3, np.log10(hvi.max_hvi), 200)
-    probs = [hvi.cdf(v) for v in x]
-    # probs2 = [hvi.cdf_monte_carlo(v) for v in x]
-    # density = [hvi.pdf(v) * 10 for v in x]
-
-    print(hvi.dominating_prob)
-    fig, ax = plt.subplots(1, 1, figsize=(10, 8))
-    ax.semilogx(x, probs, "r--")
-    # ax.semilogx(x, density, "g--")
-    if 11 < 2:
-        epsilon = acquisition.delta_hvi(1 * 0.05)
-        ax.vlines(epsilon, np.min(probs), 1 - value, colors="k", linestyles="dashed")
-        ax.hlines(1 - value, np.min(x), epsilon, colors="k", linestyles="dashed")
-    plt.show()
-
-
 def visualize_acquisition_landscape(
-    surrogate_problem, real_problem, approximation, pareto_front, ref, n_sample=50
+    surrogate_problem, real_problem, approximation, pareto_front, ref, point, n_sample=50
 ):
     # xl = problem.xl.tolist()
     # xu = problem.xu.tolist()
@@ -71,6 +53,7 @@ def visualize_acquisition_landscape(
 
     fig, ax = plt.subplots(1, 1, figsize=(10, 8))
     plot_attainment_boundary(approximation_, ref, ax)
+    ax.plot(point[0, 0], point[0, 1], "rs")
     ax.plot(pareto_front[:, 0], pareto_front[:, 1], "r--")
     ax.plot(approximation[idx, 0], approximation[idx, 1], "g+")
     ax.plot(approximation_[:, 0], approximation_[:, 1], "g.")
@@ -85,7 +68,7 @@ def visualize_acquisition_landscape(
     breakpoint()
 
 
-def main():
+def main(algorithm, x):
     # load arguments
     args, framework_args = get_args()
 
@@ -100,7 +83,9 @@ def main():
     framework_args["solver"]["n_gen"] = 1  # by-pass the optimization
 
     # initialize optimizer
-    optimizer = get_algorithm("epoi")(problem, args.n_iter, args.ref_point, framework_args, random_state=seed)
+    optimizer = get_algorithm(algorithm)(
+        problem, args.n_iter, args.ref_point, framework_args, random_state=seed
+    )
 
     # save arguments & setup logger
     save_args(args, framework_args)
@@ -110,22 +95,49 @@ def main():
     # optimization
     solution = optimizer.solve(X_init, Y_init)
 
-    for _ in range(args.n_iter):
-        # get new design samples and corresponding performance
-        X_next, Y_next = next(solution)
-        x = np.array([[0.69387755, 0.04081633]])
-        # y = optimizer.real_problem.evaluate(x)
-        # out = optimizer.current_surrogate.evaluate(x)
-        # plot_HVI_cdf(optimizer.acquisition, -out[0][0])
-        # print(out)
-        visualize_acquisition_landscape(
-            optimizer.current_surrogate,
-            optimizer.real_problem,
-            optimizer.Y,
-            pareto_front,
-            optimizer.ref_point,
-        )
+    # get new design samples and corresponding performance
+    X_next, Y_next = next(solution)
+    y = optimizer.real_problem.evaluate(x)
+    out = optimizer.current_surrogate.evaluate(x)
+    acquisition = copy.deepcopy(optimizer.acquisition)
+    print(out)
+    # visualize_acquisition_landscape(
+    #     optimizer.current_surrogate,
+    #     optimizer.real_problem,
+    #     optimizer.Y,
+    #     pareto_front,
+    #     optimizer.ref_point,
+    #     y,
+    # )
+    return acquisition
 
 
 if __name__ == "__main__":
-    main()
+    X = np.load("data.npz")["X"]
+    for i, x in enumerate(X):
+        fig, ax = plt.subplots(1, 1, figsize=(10, 8))
+
+        epoi = main("epoi", x)
+        pohvi = main("pohvi", x)
+        mu, sigma = epoi.val["F"][0, :], pohvi.val["S"][0, :]
+
+        hvi = HypervolumeImprovement(epoi.pf, epoi.rf, mu, sigma)
+        x = 10 ** np.linspace(-3, np.log10(hvi.max_hvi), 100)
+        probs = [hvi.cdf(v) for v in x]
+        # probs2 = [hvi.cdf_monte_carlo(v) for v in x]
+        print(hvi.dominating_prob)
+        ax.semilogx(x, probs, "r--")
+        # ax.semilogx(x, probs2, "r-")
+
+        hvi = HypervolumeImprovement(pohvi.pf, pohvi.rf, mu, sigma)
+        x = 10 ** np.linspace(-3, np.log10(hvi.max_hvi), 200)
+        probs = [hvi.cdf(v) for v in x]
+        # probs2 = [hvi.cdf_monte_carlo(v) for v in x]
+        print(hvi.dominating_prob)
+        ax.semilogx(x, probs, "k--")
+        # ax.semilogx(x, probs2, "k-")
+        # if 11 < 2:
+        #     epsilon = acquisition.delta_hvi(1 * 0.05)
+        #     ax.vlines(epsilon, np.min(probs), 1 - value, colors="k", linestyles="dashed")
+        #     ax.hlines(1 - value, np.min(x), epsilon, colors="k", linestyles="dashed")
+        fig.savefig(f"{i}.png")

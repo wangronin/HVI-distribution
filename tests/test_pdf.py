@@ -1,7 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from mobo.special import D, pdf_product_of_truncated_gaussian
 from scipy.stats import truncnorm
+
+from mobo.special import D, pdf_product_of_truncated_gaussian
 
 
 def rcond_norm(N, loc, scale, L=1, U=2):
@@ -20,12 +21,7 @@ L1, L2, U1, U2 = 0.5, 0.3, 5, 7
 
 pvals = np.clip(10 ** np.linspace(np.log10(L1 * L2), np.log10(U1 * U2), 200), L1 * L2, U1 * U2)
 lower, upper = np.array([L1, L2]), np.array([U1, U2])
-normalizer = (
-    np.prod([D(lower[k], upper[k], mu[k], ss[k]) for k in range(len(ss))])
-    * 2
-    * np.pi
-    * np.prod(ss)
-)
+normalizer = np.prod([D(lower[k], upper[k], mu[k], ss[k]) for k in range(len(ss))]) * 2 * np.pi * np.prod(ss)
 rst_new = [pdf_product_of_truncated_gaussian(p, mu, ss, lower, upper, normalizer) for p in pvals]
 
 x = rcond_norm(1e7, mu[0], ss[0], L1, U1)
