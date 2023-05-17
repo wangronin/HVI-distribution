@@ -1,7 +1,7 @@
 # Hypervolume Improvement Distribution Functions
 
 This is code base of the paper "Probability Distribution of Hypervolume Improvement in Bi-objective Bayesian Optimization",
-sumbitted to NeuIPS 2023.
+sumbitted to NeurIPS 2023.
 
 The repository contains two major libraries:
 
