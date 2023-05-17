@@ -1,10 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Apr 16 13:13:24 2021
-
-@author: kaifengyang
-"""
 #    This file is part of DEAP.
 #
 #    Copyright (C) 2010 Simon Wessing
@@ -28,10 +21,6 @@ Created on Fri Apr 16 13:13:24 2021
 #
 #    You should have received a copy of the GNU Lesser General Public
 #    License along with DEAP. If not, see <http://www.gnu.org/licenses/>.
-
-import random
-import warnings
-from math import floor, log
 
 import numpy
 
@@ -141,8 +130,7 @@ class _HyperVolume:
                 q = q.prev[dimIndex]
             q = p.prev[dimIndex]
             while length > 1 and (
-                q.cargo[dimIndex] > bounds[dimIndex]
-                or q.prev[dimIndex].cargo[dimIndex] >= bounds[dimIndex]
+                q.cargo[dimIndex] > bounds[dimIndex] or q.prev[dimIndex].cargo[dimIndex] >= bounds[dimIndex]
             ):
                 p = q
                 remove(p, dimIndex, bounds)

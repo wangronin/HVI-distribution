@@ -14,9 +14,6 @@ np.seterr(divide="ignore", invalid="ignore")
 warnings.simplefilter("ignore")
 
 
-__authors__ = ["Hao Wang", "Kaifeng Yang"]
-
-
 @njit
 def _set_cells(pareto_front: np.ndarray, N: int, dim: int, mu: List[float], sigma: List[float]):
     cells_volume = np.zeros((N, N))
@@ -132,7 +129,7 @@ class HypervolumeImprovement:
         r: Union[List, np.ndarray],
         mu: List[float],
         sigma: List[float],
-        extreme_point_impr_prob: float = 1.0,
+        # extreme_point_impr_prob: float = 1.0,
     ):
         self.mu = np.array(mu)
         self.sigma = np.array(sigma)
@@ -150,7 +147,6 @@ class HypervolumeImprovement:
             self.transformed_ub,
             self.normalizer,
         ) = _set_cells(self.pareto_front, self.N, self.dim, self.mu, self.sigma)
-        # self.ij = _make_index(self.cells_lb, self.cells_ub, self.mu, self.sigma)
         self.ij = self._make_index()
         self.prob_in_cell, self.dominating_prob = _compute_probability_in_cell(
             self.N, self.cells_lb, self.cells_ub, self.mu, self.sigma
@@ -195,7 +191,6 @@ class HypervolumeImprovement:
             for j in range(j_start[0], j_end[0] + 1)
             if i + j < 2 * self.N and i < self.N and j < self.N
         ]
-        # ij = [(i, j) for i in range(self.N) for j in range(self.N - i)]
         return ij
 
     @property

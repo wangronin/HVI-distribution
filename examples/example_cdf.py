@@ -1,15 +1,11 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Dec  9 09:54:23 2021
+import sys
 
-@author: kaifengyang
-"""
 import matplotlib.pyplot as plt
 import numpy as np
-import sys
-sys.path.append(".")
-from hv_improvement import HypervolumeImprovement
+
+sys.path.insert(0, "./")
+
+from hvi import HypervolumeImprovement
 
 r = np.array([12, 12])
 
@@ -23,7 +19,6 @@ sigma = np.array([2, 2])  # standard deviation
 avals = np.linspace(-10, 10, 100)
 hvi = HypervolumeImprovement(pf, r, mu, sigma)
 rst_all_ex = hvi.cdf(avals)
-# rst_all_pdf = hvi.pdf(avals)
 print(rst_all_ex)
 
 rst_all_mc, sd = hvi.cdf_monte_carlo(avals, n_sample=1e5, eval_sd=True)

@@ -1,5 +1,3 @@
-import numpy as np
-
 from problems import Problem
 
 """
@@ -47,6 +45,4 @@ class SurrogateProblem(Problem):
         out["F"], out["dF"], out["hF"] = self.acquisition.evaluate(val, calc_gradient, calc_hessian)
 
         # evaluate constraints by real problem
-        # x_ori = self.transformation.undo(x)
-        # out['G'], out['CV'], out['feasible'] = self.real_problem.evaluate(x_ori, return_values_of=['G', 'CV', 'feasible'], requires_F=False)
         out["G"], out["CV"], out["feasible"] = None, None, None

@@ -2,7 +2,7 @@ import numpy as np
 
 from .factory import init_from_config
 from .surrogate_problem import SurrogateProblem
-from .transformation import NonStandardTransform, SearchSpaceTransform
+from .transformation import NonStandardTransform  # , SearchSpaceTransform
 from .utils import Timer, calc_hypervolume, find_pareto_front
 
 """
@@ -29,12 +29,7 @@ class MOBO:
         self.n_var, self.n_obj = problem.n_var, problem.n_obj
         self.n_iter = n_iter
         self.ref_point = ref_point
-
-        if hasattr(problem, "search_space"):
-            self.search_space = problem.search_space
-            self.transformation = SearchSpaceTransform(self.search_space)
-        else:
-            self.transformation = NonStandardTransform()
+        self.transformation = NonStandardTransform()
 
         # framework components
         framework_args["surrogate"]["n_var"] = self.n_var  # for surrogate fitting
@@ -63,9 +58,6 @@ class MOBO:
             self.solver.algo_kwargs["sigma"] = (
                 self.solver.algo_kwargs["sigma"] * np.min(problem.xu - problem.xl) / 4
             )
-            # del self.solver.algo_kwargs["pop_size"]
-            # self.solver.algo_kwargs["n-gen"] = \
-            #     self.solver.algo_kwargs["n-gen"] * self.solver.algo_kwargs["restarts"]
 
         self.selection = framework[
             "selection"

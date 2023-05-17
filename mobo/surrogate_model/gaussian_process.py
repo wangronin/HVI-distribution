@@ -1,13 +1,10 @@
 import numpy as np
-from scipy.linalg import solve_triangular
 from scipy.optimize import minimize
-from scipy.spatial.distance import cdist
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, ConstantKernel, Matern
 from sklearn.utils.optimize import _check_optimize_result
 
 from mobo.surrogate_model.base import SurrogateModel
-from mobo.utils import safe_divide
 
 
 class GaussianProcess(SurrogateModel):
@@ -53,21 +50,6 @@ class GaussianProcess(SurrogateModel):
                 random_state=random_state,
             )
             self.gps.append(gp)
-
-            # #  previouse version
-            # kernel = ConstantKernel(
-            #     constant_value=1.0, constant_value_bounds=(1e-8, 1e5)
-            # ) * main_kernel + ConstantKernel(
-            #     constant_value=1e-2, constant_value_bounds=(1e-8, 2)
-            # )
-
-            # gp = GaussianProcessRegressor(
-            #     kernel=kernel,
-            #     # normalize_y=False,
-            #     optimizer=constrained_optimization,
-            #     alpha=1e-5,
-            # )
-            # self.gps.append(gp)
 
     def fit(self, X, Y):
         for i, gp in enumerate(self.gps):

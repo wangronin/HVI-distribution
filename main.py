@@ -5,9 +5,9 @@ import numpy as np
 
 from arguments import get_args
 from mobo.algorithms import get_algorithm
+from mobo.data_export import DataExport
+from mobo.utils import save_args, setup_logger
 from problems.common import build_problem
-from utils import save_args, setup_logger
-from visualization.data_export import DataExport
 
 """
 Main entry for MOBO execution

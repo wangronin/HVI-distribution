@@ -83,7 +83,6 @@ class Custom(MOBO):
     config = None
 
 
-
 class UCB(MOBO):
     """
     UCB
@@ -109,6 +108,7 @@ class NUCB(MOBO):
         "selection": "hvi",
     }
 
+
 class POHVI(MOBO):
     """
     NUCB
@@ -120,6 +120,7 @@ class POHVI(MOBO):
         "solver": "cmaes",
         "selection": "hvi",
     }
+
 
 class EPOI(MOBO):
     """
@@ -139,30 +140,7 @@ def get_algorithm(name):
     Get class of algorithm by name
     """
     algo = {
-        # "dgemo": DGEMO,
-        # "tsemo": TSEMO,
-        # "usemo-ei": USEMO_EI,
-        # "moead-ego": MOEAD_EGO,
-        # "parego": ParEGO,
-        # "custom": Custom,
-        # "hvic-m1-es": HVIC_M1_ES,
-        # "hvic-m2-es": HVIC_M2_ES,
-        # "hvic-m3-es": HVIC_M3_ES,
-        # "hvic-m31-es":HVIC_M31_ES,
-        # "hvic-m4-es": HVIC_M4_ES,
-        # "hvic-m1-ga": HVIC_M1_GA,
-        # "hvic-m2-ga": HVIC_M2_GA,
-        # "hvic-m3-ga": HVIC_M3_GA,
-        # "hvic-m4-ga": HVIC_M4_GA,
-        "ucb": UCB,
         "epoi": EPOI,
-        "nucb": NUCB, 
         "pohvi": POHVI,
-
-
-        # "pohvi": 
-        # "epoi_c": EPOI_C,
-        # "hvic-m4-es-e": HVIC_M4_ES_Epsilon,
-        # "hvic-m4-es-e-dr": HVIC_M4_ES_Epsilon_DynamicRef,
     }
     return algo[name]

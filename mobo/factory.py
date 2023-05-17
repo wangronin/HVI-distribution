@@ -4,12 +4,11 @@ Factory for importing different components of the MOBO framework by name
 
 
 def get_surrogate_model(name):
-    from .surrogate_model import GaussianProcess, RandomForest, ThompsonSampling
+    from .surrogate_model import GaussianProcess, ThompsonSampling
 
     surrogate_model = {
         "gp": GaussianProcess,
         "ts": ThompsonSampling,
-        "rf": RandomForest,
     }
 
     surrogate_model["default"] = GaussianProcess
@@ -18,40 +17,22 @@ def get_surrogate_model(name):
 
 
 def get_acquisition(name):
-    from .acquisition import NUCB, UCB, Epsilon_PoI, Epsilon_PoI_Cut, PoHVI
+    from hvi.acquisition import Epsilon_PoI, PoHVI
 
     acquisition = {
-        # 'identity': IdentityFunc,
-        # 'pi': PI,
-        # 'ei': EI,
-        "ucb": UCB,
-        "nucb": NUCB,
         "pohvi": PoHVI,
-        # 'hvi_ucb_m1': HVI_UCB_M1,
-        # 'hvi_ucb_m2': HVI_UCB_M2,
-        # 'hvi_ucb_m3': HVI_UCB_M3,
-        # 'hvi_ucb_m4': HVI_UCB_M4,
         "epoi": Epsilon_PoI,
-        "epoi_cut": Epsilon_PoI_Cut,
-        # 'hvi_ucb_m3_epsilon': HVI_UCB_M3_EPSILON,
-        # 'hvi_ucb_m3_epsilon_dr': HVI_UCB_M3_EPSILON_DR,
     }
-
-    acquisition["default"] = UCB
-
+    acquisition["default"] = Epsilon_PoI
     return acquisition[name]
 
 
 def get_solver(name):
-    # ParEGOSolver
-    # from .solver import GASolver
-    from .solver import CMAESSolver, GASolver, MOEADSolver, NSGA2Solver  # , ParetoDiscoverySolver
+    from .solver import CMAESSolver, GASolver, MOEADSolver, NSGA2Solver
 
     solver = {
         "nsga2": NSGA2Solver,
         "moead": MOEADSolver,
-        # "discovery": ParetoDiscoverySolver,
-        # 'parego': ParEGOSolver,
         "cmaes": CMAESSolver,
         "ga": GASolver,
     }
