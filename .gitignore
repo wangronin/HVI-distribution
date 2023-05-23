@@ -3,7 +3,7 @@
 
 result/
 result_distribution_cprofiler_ci_das/
-*.csv
+# *.csv
 *.png
 backup/
 
