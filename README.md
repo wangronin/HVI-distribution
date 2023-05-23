@@ -15,7 +15,7 @@ hvi/
  ├── acquisition.py --- acquisition functions
  ├── hv_improvement.py --- probability distribution of HVI
  ├── hypervolume.py --- compute hypervolume 
- ├── special math functions used in hv_improvement.py
+ └── special math functions used in hv_improvement.py
 mobo/
  ├── solver/ --- multi-objective solvers
  ├── surrogate_model/ --- surrogate models
@@ -28,7 +28,7 @@ mobo/
  └── utils.py --- utility functions
 data/
  ├── data.csv --- data sets used in the NeurIPS submission
- ├── CD_plot.R --- R source code for making the critical difference charts
+ └── CD_plot.R --- R source code for making the critical difference charts
 problems/ --- multi-objective problem definitions
 scripts/ --- scripts for batch experiments
 main.py --- main execution entry for MOBO algorithms
