@@ -40,7 +40,7 @@ for k, level in enumerate(levels):
     curves = lc.compute(level)
     for x0, x1, expr in curves:
         print(f"{expr}, x \in [{x0:.3f}, {x1:.3f}]")
-        x0 = max(1e-2, x0)
+        x0 = max(1e-2, x0)  # avoid division by zero
         x1 = min(x1, 8)
         xx = np.linspace(x0, x1, num=50)
         y = [expr.subs(x, _) for _ in xx]
