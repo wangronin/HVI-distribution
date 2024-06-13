@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib import rcParams
 from sympy import symbols
 
-from hvi.level_curve import HypervolumeLevelCurve
+from hvi.level_curve import HypervolumeImprovementLevelCurve2D
 
 plt.style.use("ggplot")
 plt.rc("text.latex", preamble=r"\usepackage{amsmath}")
@@ -23,7 +23,7 @@ rcParams["ytick.major.size"] = 7
 rcParams["ytick.major.width"] = 1
 
 pareto_front = np.array([[1, 4], [2, 3], [3, 2], [4, 1]])
-lc = HypervolumeLevelCurve(pareto_front=pareto_front, reference_point=[0, 0])
+lc = HypervolumeImprovementLevelCurve2D(pareto_front=pareto_front, reference_point=[0, 0])
 
 fig, ax = plt.subplots(1, 1, figsize=(8, 8))
 ax.set_aspect("equal")

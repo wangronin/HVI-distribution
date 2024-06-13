@@ -27,8 +27,14 @@ def _set_cells(
     return cell_info
 
 
-class HypervolumeLevelCurve:
+class HypervolumeImprovementLevelCurve2D:
     def __init__(self, pareto_front: np.ndarray, reference_point: np.ndarray) -> None:
+        """Compute the level curve of hypervolume improvement in 2D. Maximization is assumed.
+
+        Args:
+            pareto_front (np.ndarray): the approximation set to the Pareto front, of shape (`N`, 2)
+            reference_point (np.ndarray): the reference point, of shape (2, )
+        """
         # sorting in the increasing order of the first component
         self.pareto_front = pareto_front[pareto_front[:, 0].argsort()]
         self.reference_point = reference_point
@@ -36,6 +42,16 @@ class HypervolumeLevelCurve:
         self.N = len(pareto_front)
 
     def compute(self, level: float) -> List[List[float, float, Expr]]:
+        """HVI's level curve at `level`. It is a piecewise hyperbola.
+
+        Args:
+            level (float): the hypervolume improvement value
+
+        Returns:
+            List[List[float, float, Expr]]: list of hyperbola pieces. Each piece is specified
+            by (x_start, x_end, y = f(x)), where the parametric function f(x) is implemented
+            as `sympy`'s expression.
+        """
         level_curve = []
         i, j = 0, 0  # always start with cell (0, 0)
         while i <= self.N and j <= self.N:  # always end with cell (`N`, `N`)
