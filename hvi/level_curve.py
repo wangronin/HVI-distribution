@@ -38,7 +38,7 @@ class HypervolumeLevelCurve:
         info = self.cell_info[(0, 0)]
         x0, x1 = info["x0"], info["xmax"]
         xl, yl = info["xl"], info["yl"]
-        level_set = [[x0, x1, curve_2d.subs({xl_: xl, yl_: yl, C_: level})]]
+        level_curve = [[x0, x1, curve_2d.subs({xl_: xl, yl_: yl, C_: level})]]
         i, j = 0, 1
         while i < self.N or j < self.N:
             info = self.cell_info[(i, j)]
@@ -49,7 +49,7 @@ class HypervolumeLevelCurve:
                 y0 = level / (x0 - xl) + ymin
             C = (x0 - xl) * (y0 - yl)
             x1 = min(C / (ymin - yl) + xl, xmax)  # the last value of `x`
-            level_set.append([x0, x1, curve_2d.subs({xl_: xl, yl_: yl, C_: C})])
+            level_curve.append([x0, x1, curve_2d.subs({xl_: xl, yl_: yl, C_: C})])
             x0 = x1  # the first value of `x`
             y0 = ymin if x1 < xmax else C / (xmax - xl) + yl  # the first value of `y`
             if x1 < xmax:
@@ -60,5 +60,5 @@ class HypervolumeLevelCurve:
         # always end with cell (`N`, `N`)
         info = self.cell_info[(i, j)]
         x1, xl, yl = info["xmax"], info["xl"], info["yl"]
-        level_set.append([x0, x1, curve_2d.subs({xl_: xl, yl_: yl, C_: level})])
-        return level_set
+        level_curve.append([x0, x1, curve_2d.subs({xl_: xl, yl_: yl, C_: level})])
+        return level_curve
